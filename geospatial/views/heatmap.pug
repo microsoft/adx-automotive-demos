@@ -1,0 +1,40 @@
+extends layout
+
+block content
+  
+  <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
+    div(class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom")
+      h1(class="h2") #{title}
+      div(class="btn-toolbar mb-2 mb-md-0")
+        div(class="btn-group me-2")
+   
+
+    //div(id="myMap" style="position:relative;width:100%;min-width:290px;height:800px;")
+    div(id="myMap" class="my-4 w-100" style="width:100%;min-width:290px;height:800px;")
+    img(id="loadingIcon" src="/images/loadingIcon.gif" title="Loading" style="position:absolute;left:calc(50% - 25px);top:250px;")
+    div(class="col-sm-3" id="databuttons")
+
+    script(src="/javascripts/fleet-geospatial.js")
+    script(type="text/javascript").
+      
+
+      map.events.add('ready', function(){
+        document.getElementById('loadingIcon').style.display = 'block';
+
+        
+        createPolygon("/location_heatmap", "eventCount",
+          [
+            0, '#DDB0D4',            
+            10, "#C784A1",
+            20, '#B0585E',
+            30, '#973F2C',
+            50, '#7C4500',
+            80, '#743600',
+            120, '#5D2600'
+          ]                          
+        );    
+
+      })
+        
+
+

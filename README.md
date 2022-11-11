@@ -1,14 +1,14 @@
 # ADX Automotive Demos
 
-Welcome to Azure Data Explorer Automotive demos for Test & Validation Fleets. This project contains sample code for the [Data analytics for automotive test fleets](https://learn.microsoft.com/en-us/azure/architecture/industries/automotive/automotive-telemetry-analytics) architecuture.
+Welcome to Azure Data Explorer Automotive demos for Test & Validation Fleets. This project contains sample code for the [Data analytics for automotive test fleets](https://learn.microsoft.com/en-us/azure/architecture/industries/automotive/automotive-telemetry-analytics) architecture.
 
 Here you can find two sub-projects:
-- [geospatial](geospatial/README.md) is a Node.Js project that provides geospatial visualization capabilities.
+- [geospatial](geospatial/README.md) is a Node.js project that provides geospatial visualization capabilities.
 - [mdf42adx](mdf42adx/README.md) is a python script that prepares ASAM MDF-4 files for import into ADX.
 
 ## Using the projects
 
-A easy way to get started is to use Visual Studio Code and wsl.
+A easy way to get started is to use Visual Studio Code and WSL.
 
 - Install WSL2 in your Windows computer
 - Install Visual Studio Code
@@ -17,6 +17,7 @@ A easy way to get started is to use Visual Studio Code and wsl.
 
 ``` bash
 code geospatial
+code mdf42adx
 ```
 
 ## Contributing

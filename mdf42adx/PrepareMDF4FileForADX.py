@@ -63,7 +63,7 @@ def writeCsv(basename, mdf, uuid, target):
                 stringSignals = np.empty(len(signals.timestamps), dtype=str)
                 importType = "numeric"
             except:
-                numericSignals = np.empty(len(signals.timestamps), dtype=np.double)
+                numericSignals = np.full(len(signals.timestamps), dtype=np.double, fill_value=0)
                 stringSignals = signals.samples.astype(str)
                 importType = "string"
 

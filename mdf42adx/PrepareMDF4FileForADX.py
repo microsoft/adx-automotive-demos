@@ -1,3 +1,6 @@
+# Copyright (c) Microsoft Corporation.
+# Licensed under the MIT License.
+
 import argparse
 import numpy as np
 import pandas as pd
@@ -8,6 +11,7 @@ import uuid
 from datetime import datetime, timedelta
 
 
+# Iterates over all signals and prints them to the console
 def dumpSignals(mdf):
     for signals in mdf.iter_channels():
 
@@ -35,12 +39,14 @@ def dumpSignals(mdf):
             )
 
 
+# Creates a metadata file for the MDF-4
 def writeMetadata(mdf, uuid):
     metadataFile = open(str(uuid) + ".md", 'w')
     metadataFile.write(args.file)
     metadataFile.write(mdf.header.comment)
     metadataFile.close()
 
+# Writes a gzipped CSV file using the uuid as name
 def writeCsv(mdf, uuid):
     # open the file in the write mode
     with gzip.open(str(uuid) + "-signalscsv.gz", 'wt') as csvFile:
@@ -102,7 +108,6 @@ if __name__ == "__main__":
 
     
     #dumpSignals(mdf)
-
     
     writeMetadata(mdf, uuid)
     writeCsv(mdf, uuid)

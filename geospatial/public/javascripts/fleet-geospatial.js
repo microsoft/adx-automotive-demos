@@ -1,3 +1,5 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
 var map, datasource, popup;
 var geoJSONdata;
 
@@ -34,7 +36,7 @@ function GetMap() {
         authOptions: {
             //Alternatively, use an Azure Maps key. Get an Azure Maps key at https://azure.com/maps. NOTE: The primary key should be used as the key.
             authType: 'subscriptionKey',
-            subscriptionKey: 'iIuIl0MYFClTWtOXpfGpiKsZRgYo5ge4mClUsnxQqW4'
+            subscriptionKey: '<add your key here>'
         }
     });
 

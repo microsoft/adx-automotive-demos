@@ -1,3 +1,5 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
 require('dotenv').config();
 var express = require('express');
 var router = express.Router();

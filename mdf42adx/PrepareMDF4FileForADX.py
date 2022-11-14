@@ -1,34 +1,32 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
-
 import argparse
-import numpy as np
-import pandas as pd
 from asammdf import MDF
 import csv
-import gzip
-import uuid
 from datetime import datetime, timedelta
+import gzip
+import os
+import pandas as pd
+from pathlib import Path
+import numpy as np
+import uuid
 
 
 # Iterates over all signals and prints them to the console
-def dumpSignals(mdf):
+def dumpSignals(basename, mdf, uuid):
     for signals in mdf.iter_channels():
 
         try:
             numericSignals = signals.samples.astype(np.double)
-        except:
-            try: 
-                numericSignals = signals.samples.astype(np.int64)            
-            except:
-                numericSignals = np.empty(len(signals.timestamps))    
+        except:     
+            numericSignals = np.empty(len(signals.timestamps))   
 
         for indx in range(0, len(signals.timestamps)):                               
 
            print(
                 [
-                    args.file,
-                    uuid,
+                    basename, 
+                    str(uuid),
                     signals.name, 
                     signals.unit, 
                     signals.timestamps[indx],
@@ -40,16 +38,15 @@ def dumpSignals(mdf):
 
 
 # Creates a metadata file for the MDF-4
-def writeMetadata(mdf, uuid):
-    metadataFile = open(str(uuid) + ".md", 'w')
-    metadataFile.write(args.file)
-    metadataFile.write(mdf.header.comment)
-    metadataFile.close()
+def writeMetadata(basename, mdf, uuid, target):
+    with open(os.path.join(target, f"{basename}-{uuid}.metadata"), 'w') as metadataFile:
+        #metadataFile.write(args.file)
+        metadataFile.write(mdf.header.comment)    
 
 # Writes a gzipped CSV file using the uuid as name
-def writeCsv(mdf, uuid):
+def writeCsv(basename, mdf, uuid, target):
     # open the file in the write mode
-    with gzip.open(str(uuid) + "-signalscsv.gz", 'wt') as csvFile:
+    with gzip.open(os.path.join(target, f"{basename}-{uuid}-signalscsv.gz"), 'wt') as csvFile:
 
         print("Exporting to: " + csvFile.name)
 
@@ -69,7 +66,7 @@ def writeCsv(mdf, uuid):
                 except:
                     numericSignals = np.empty(len(signals.timestamps))    
 
-            print("Exporting signal: ", signals.name)               
+            print(f"Exporting signal: {signals.name}")               
 
             for indx in range(0, len(signals.timestamps)):
 
@@ -80,8 +77,8 @@ def writeCsv(mdf, uuid):
 
                 writer.writerow(
                     [
-                        args.file,
-                        uuid,
+                        basename,
+                        str(uuid),
                         signals.name, 
                         signals.unit, 
                         signals.timestamps[indx],
@@ -95,22 +92,39 @@ def writeCsv(mdf, uuid):
 
     csvFile.close()
 
+# Process a single file
+def processFile(filename):    
+    
+    mdf = MDF(filename)
+    basename = Path(filename).stem
+
+    file_uuid = uuid.uuid4()
+    
+    if (args.dump):
+        dumpSignals(basename, mdf, file_uuid)
+    else:         
+        writeMetadata(basename, mdf, file_uuid, args.target)
+        writeCsv(basename, mdf, file_uuid, args.target)
+
+# Process a complete directory
+def processDirectory(directoryname):
+    for path in os.listdir(directoryname):
+        if os.path.isfile(os.path.join(directoryname, path)):
+            processFile(os.path.join(directoryname, path))
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("file")
-    
-        
+    parser = argparse.ArgumentParser(description="Process a single MDF-4 or directory with MDF-4 files into CSV Files")
+    parser.add_argument("-f", "--file", dest="file", help="Path to a single MDF-4 file")
+    parser.add_argument("-d", "--directory", dest="directory", help="Path to a directory with MDF-4 files")
+    parser.add_argument("-t", "--target", dest="target", default=".", help="Location where the processed CSV files will be stored")
+    parser.add_argument("--dump", dest="dump", action="store_true", help="Shows the content of the files")
     args = parser.parse_args()
 
-    mdf = MDF(args.file)
-    uuid = uuid.uuid4()
+    if(args.file):
+        processFile(args.file)
 
-    
-    #dumpSignals(mdf)
-    
-    writeMetadata(mdf, uuid)
-    writeCsv(mdf, uuid)
-    
+    if(args.directory):
+        processDirectory(args.directory)
+
 
 

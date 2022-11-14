@@ -56,17 +56,18 @@ def writeCsv(basename, mdf, uuid, target):
         # Start time of the recording
         recordingStartTime = mdf.header.start_time
 
-        for signals in mdf.iter_channels():
+        for signals in mdf.iter_channels():            
 
             try:
                 numericSignals = signals.samples.astype(np.double)
+                stringSignals = np.empty(len(signals.timestamps), dtype=str)
+                importType = "numeric"
             except:
-                try: 
-                    numericSignals = signals.samples.astype(np.int64)            
-                except:
-                    numericSignals = np.empty(len(signals.timestamps))    
+                numericSignals = np.empty(len(signals.timestamps), dtype=np.double)
+                stringSignals = signals.samples.astype(str)
+                importType = "string"
 
-            print(f"Exporting signal: {signals.name}")               
+            print(f"Exporting signal: {signals.name} as type {importType}")               
 
             for indx in range(0, len(signals.timestamps)):
 
@@ -84,7 +85,7 @@ def writeCsv(basename, mdf, uuid, target):
                         signals.timestamps[indx],
                         recordingStartTime + timedelta(seconds=signals.timestamps[indx]),
                         numericSignals[indx],
-                        signals.samples[indx],
+                        stringSignals[indx],
                         signals.source.source_type,
                         signals.source.bus_type
                     ]

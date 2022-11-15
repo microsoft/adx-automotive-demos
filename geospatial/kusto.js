@@ -19,29 +19,65 @@ const kcs = KustoConnectionStringBuilder.withAadApplicationKeyAuthentication(clu
 
 const kustoClient = new KustoClient(kcs);
 
+// The queries assume that specific signals are available.
+// Modify the signals to match your data
+
+
+// Coverage of cell phone strength
+// This query will use the "gsmSignal" and group it by the h3small cell.
 module.exports.queryCellPhoneCoverage = async function queryCellPhoneCoverage() {
-    const kqlQuery = `GeoCellPhoneCoverage()`;
+    const kqlQuery = `
+    carTelemetry
+    | where  dataRecordingTime > ago(7d)
+    | where eventType == "SAMPLING" and isnotempty(h3Small) and signal == "gsmSignal" and signalValueDouble <> 99
+    | summarize average = avg(signalValueDouble), max(signalValueDouble), min(signalValueDouble) by h3Small
+    | project h3_hash_polygon = geo_h3cell_to_polygon(h3Small), telemetry = pack_all(), h3Small
+    | project feature=pack(
+            "type", "Feature",
+            "geometry", h3_hash_polygon,
+            "properties", telemetry)
+    | summarize features = make_list(feature)
+    | project pack(
+            "type", "FeatureCollection",
+            "features", features)    
+    `;
     return query(kqlQuery);
 }
 
-module.exports.queryAverageSpeed = async function queryAverageSpeed(){
-    const kqlQuery = `GeoFleetAverageSpeed()`;
-    return query(kqlQuery);
-}
-
+// Count of events per location - creates a heatmap
+// this query gets all "SAMPLING" event types and groups them, but only if the GPS "Fix" is good (above 2
 module.exports.queryLocationHeatmap = async function queryLocationHeatmap() {
-    const kqlQuery = `GeoFleetHeatmap()`;
+    const kqlQuery = `
+    carTelemetry
+    | where  dataRecordingTime > ago(7d)
+    | where eventType == "SAMPLING" and isnotempty(h3Small) and signal == "fixType" and signalValueDouble >= 2
+    | summarize eventCount = count() by h3Small
+    | project h3_hash_polygon = geo_h3cell_to_polygon(h3Small), telemetry = pack_all(), h3Small
+    | project feature=pack(
+            "type", "Feature",
+            "geometry", h3_hash_polygon,
+            "properties", telemetry)
+    | summarize features = make_list(feature)
+    | project pack(
+            "type", "FeatureCollection",
+            "features", features)                
+    `;
     return query(kqlQuery);
 }
 
-module.exports.queryEvent = async function queryEvent(eventType) {    
-    const kqlQuery = `GeoDrivingEvent('7d', '${eventType}')`;
-    return query(kqlQuery);
-}
-
+// Counts HARSH events per location (h3_small) to create a risk map
 module.exports.queryHarshEvents = async function queryHarshEvents(){
     const kqlQuery = `
-    GeoHarshEvents
+    carTelemetry
+    | where  dataRecordingTime > ago(7d)
+    | where eventType in ("HARSH", "HARSH_ACC", "HARSH_BRK")
+    | where  isnotempty(h3Small) and signal == "fixType" and signalValueDouble >= 2
+    | summarize
+        eventCount = count(), 
+        harsh = countif(eventType == "HARSH"), 
+        harsh_acc = countif(eventType == "HARSH_ACC"), 
+        harsh_brk = countif(eventType == "HARSH_BRK") 
+        by h3Small  
     | project h3_hash_polygon = geo_h3cell_to_polygon(h3Small), telemetry = pack_all(), h3Small
     | project feature=pack(
             "type", "Feature",
@@ -52,12 +88,6 @@ module.exports.queryHarshEvents = async function queryHarshEvents(){
             "type", "FeatureCollection",
             "features", features)
     `;
-    return query(kqlQuery);
-}
-
-
-module.exports.queryLocalWeather = async function queryLocalWeather() {
-    const kqlQuery = `GeoFleetLocalTemperature()`;
     return query(kqlQuery);
 }
 

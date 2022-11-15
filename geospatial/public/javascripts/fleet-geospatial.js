@@ -19,7 +19,7 @@ function GetMap(mapsKey) {
     map = new atlas.Map('myMap', {
         
         center: [-122.12, 47.64],
-        zoom: 11,
+        zoom: 12,
 
         //Pitch the map so that the extrusion of the polygons is visible.
         pitch: 45,

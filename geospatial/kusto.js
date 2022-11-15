@@ -87,7 +87,7 @@ async function query(query) {
         // highly recommended. It not only allows the caller to
         // cancel the query, but also makes it possible for the Kusto
         // team to investigate query failures end-to-end:
-        clientRequestProps.clientRequestId = `MyApp.MyActivity;${uuidv4()}`;
+        clientRequestProps.clientRequestId = `FleetVisualization.Query;${uuidv4()}`;
 
         const results = await kustoClient.execute(database, query, clientRequestProps);
 

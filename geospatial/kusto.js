@@ -12,7 +12,6 @@ const aadAppId = process.env.AAD_APP_ID;
 const appKey = process.env.AAD_APP_KEY;
 const tenantID = process.env.AAD_TENANT_ID; 
 const database = process.env.DATABASE_NAME;
-const table = process.env.TABLE_NAME;
 
 // -- the appid parameter is the Application (client) ID guid from the overview page of the app registration
 // -- the tenantID parameter is the Directory (tenant) ID guid from the overview page of the app registration

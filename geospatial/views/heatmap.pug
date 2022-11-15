@@ -16,7 +16,8 @@ block content
 
     script(src="/javascripts/fleet-geospatial.js")
     script(type="text/javascript").
-      
+      document.body.onload = GetMap("#{key}");
+    script(type="text/javascript").   
 
       map.events.add('ready', function(){
         document.getElementById('loadingIcon').style.display = 'block';

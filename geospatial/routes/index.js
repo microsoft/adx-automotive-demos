@@ -4,6 +4,7 @@ require('dotenv').config();
 var express = require('express');
 var router = express.Router();
 const kusto = require('../kusto.js');
+const mapKey = process.env.AZURE_MAPS_KEY;
 
 /* GET home page. */
 router.get('/', function(req, res, next) {
@@ -11,15 +12,15 @@ router.get('/', function(req, res, next) {
 });
 
 router.get('/safety', function(req, res, next) {
-  res.render('safety', { title: 'Safety' });   
+  res.render('safety', { title: 'Safety', key: mapKey  });   
 });
 
 router.get('/heatmap', function(req, res, next) {
-  res.render('heatmap', { title: 'Heatmap' });   
+  res.render('heatmap', { title: 'Heatmap', key: mapKey });   
 });
 
 router.get('/coverage', function(req, res, next) {
-  res.render('coverage', { title: 'Coverage' });   
+  res.render('coverage', { title: 'Coverage', key: mapKey  });   
 });
 router.get('/weather', function(req, res, next) {
   res.render('weather', { title: 'Weather' });   

@@ -14,9 +14,7 @@ var colorScaleDefault = [
     50, '#216e0d'
 ];
 
-document.body.onload = GetMap();
-
-function GetMap() {
+function GetMap(mapsKey) {
     //Initialize a map instance.
     map = new atlas.Map('myMap', {
         
@@ -32,11 +30,10 @@ function GetMap() {
 
         view: 'Auto',
         
-        //Add authentication details for connecting to Azure Maps.
-        authOptions: {
-            //Alternatively, use an Azure Maps key. Get an Azure Maps key at https://azure.com/maps. NOTE: The primary key should be used as the key.
+        //Add authentication details for connecting to Azure Maps. The subscription key is the simplest authentication type
+        authOptions: {            
             authType: 'subscriptionKey',
-            subscriptionKey: '<add your key here>'
+            subscriptionKey: mapsKey
         }
     });
 
@@ -44,9 +41,6 @@ function GetMap() {
     map.events.add('ready', function () {
         //Add the Style Control to the map.
         map.controls.add(new atlas.control.StyleControl({
-            //Optionally specify which map styles you want to appear in the picker. 
-            //All styles available with the S0 license tier appear by default in the control. 
-            //If using a S1 tier license, you can use the mapStyles option to add the 'satellite' and 'satellite_road_labels' styles to the control.
             mapStyles: ['road', 'road_shaded_relief', 'grayscale_light', 'night', 'grayscale_dark', 'satellite', 'satellite_road_labels']
         }), {
             position: "top-right"

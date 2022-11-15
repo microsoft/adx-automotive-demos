@@ -2,7 +2,7 @@
 
 Visualize the aggregated data from your vehicle fleet in beautiful 3D maps.
 
-This NodeJS application uses Azure Data Explorer and Azure Maps to create 3D renderings of vehicle data.
+This Node.JS application uses Azure Data Explorer and Azure Maps to create 3D renderings of vehicle data.
 We include several visualization types to get you started:
 
 - Heatmap: Show where the vehicles commonly report location

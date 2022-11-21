@@ -116,8 +116,6 @@ def main(event: func.EventGridEvent):
     mdf = MDF(mdf_LOCALFILE.name)
     logging.info('mdf version 4 parsed successfully')
 
-
-    # << TODO: conversion >>
     
     #curated blob details
     curated_CONTAINERNAME= raw_CONTAINERNAME.replace('raw' , 'curated')
@@ -137,3 +135,14 @@ def main(event: func.EventGridEvent):
     writeCsv(csv_LOCALFILE.name, mdf, curated_BLOBNAME)
 
     logging.info("CSV file created successfully")
+
+    # Upload csv file to curated container
+    try:
+        curated_blob_client_instance = blob_service_client_instance.get_blob_client(container=curated_CONTAINERNAME, blob=curated_BLOBNAME)
+    except ResourceNotFoundError as e:
+       logging.info("No blob found.")
+       raise
+    logging.info("\nUploading to Azure Storage as blob:\n\t" + curated_BLOBNAME)
+    # Upload the created file
+    with open(file=csv_LOCALFILE.name, mode="rb") as data:
+        curated_blob_client_instance.upload_blob(data)   

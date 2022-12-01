@@ -5,14 +5,17 @@ from asammdf import MDF
 import csv
 from datetime import datetime, timedelta
 import gzip
+import json
 import os
 import pandas as pd
 from pathlib import Path
+import time
 import numpy as np
 import uuid
 
 # Iterates over all signals and prints them to the console
 def dumpSignals(basename, mdf, uuid):
+       
     for signals in mdf.iter_channels():
 
         try:
@@ -24,7 +27,6 @@ def dumpSignals(basename, mdf, uuid):
 
            print(
                 [
-                    basename, 
                     str(uuid),
                     signals.name, 
                     signals.unit, 
@@ -37,25 +39,29 @@ def dumpSignals(basename, mdf, uuid):
 
 # Creates a metadata file for the MDF-4
 def writeMetadata(basename, mdf, uuid, target):
-    with open(os.path.join(target, f"{basename}-{uuid}.metadata"), 'w') as metadataFile:
-        #metadataFile.write(args.file)
-        metadataFile.write(mdf.header.comment)    
+    with open(os.path.join(target, f"{basename}-{uuid}.metadata.json"), 'w') as metadataFile:
+        metadata = {
+            "name": basename,
+            "uuid": str(uuid),
+            "comments": mdf.header.comment
+        }
+        metadataFile.write(json.dumps(metadata))
 
 # Create a parquet file for the MDF
 def writeParquet(basename, mdf, uuid, target):    
     targetfile = os.path.join(target, f"{basename}-{uuid}-signals.parquet")
-    print("Exporting Parquet to: " + targetfile)
-    mdf.export(fmt="parquet", filename=targetfile, raw=False, empty_channels="skip", ignore_value2text_conversions = False, time_from_zero=False)
+    print(f"Exporting Parquet to: {targetfile}")
+    mdf.export(fmt="parquet", filename=targetfile, raw=False, empty_channels="skip", ignore_value2text_conversions = False, time_from_zero=False, compression="GZIP")
 
 # Writes a gzipped CSV file using the uuid as name
 def writeCsv(basename, mdf, uuid, target):
     # open the file in the write mode
     with gzip.open(os.path.join(target, f"{basename}-{uuid}-signalscsv.gz"), 'wt') as csvFile:
 
-        print("Exporting CSV to: " + csvFile.name)
+        print(f"Exporting CSV to: {csvFile.name}")
 
         writer = csv.writer(csvFile)
-        writer.writerow(["source_file","source_uuid", "name", "unit", "relativeTimestamp", "absoluteTimestamp", "value", "value_string", "source_type", "bus_type"])
+        writer.writerow(["source_uuid", "name", "unit", "relativeTimestamp", "absoluteTimestamp", "value", "value_string", "source_type", "bus_type"])
 
         # Start time of the recording
         recordingStartTime = mdf.header.start_time
@@ -82,7 +88,6 @@ def writeCsv(basename, mdf, uuid, target):
 
                 writer.writerow(
                     [
-                        basename,
                         str(uuid),
                         signals.name, 
                         signals.unit, 
@@ -100,6 +105,8 @@ def writeCsv(basename, mdf, uuid, target):
 # Process a single file
 def processFile(filename):    
     
+    start_time = time.time()
+
     mdf = MDF(filename)
     basename = Path(filename).stem
 
@@ -114,6 +121,9 @@ def processFile(filename):
     else:
         writeMetadata(basename, mdf, file_uuid, args.target)
         writeCsv(basename, mdf, file_uuid, args.target)        
+
+    end_time = time.time() - start_time
+    print (f"Processing {filename} took {end_time}")
 
 # Process a complete directory
 def processDirectory(directoryname):

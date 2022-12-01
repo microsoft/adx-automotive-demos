@@ -11,7 +11,6 @@ from pathlib import Path
 import numpy as np
 import uuid
 
-
 # Iterates over all signals and prints them to the console
 def dumpSignals(basename, mdf, uuid):
     for signals in mdf.iter_channels():
@@ -36,19 +35,24 @@ def dumpSignals(basename, mdf, uuid):
                 ]
             )
 
-
 # Creates a metadata file for the MDF-4
 def writeMetadata(basename, mdf, uuid, target):
     with open(os.path.join(target, f"{basename}-{uuid}.metadata"), 'w') as metadataFile:
         #metadataFile.write(args.file)
         metadataFile.write(mdf.header.comment)    
 
+# Create a parquet file for the MDF
+def writeParquet(basename, mdf, uuid, target):    
+    targetfile = os.path.join(target, f"{basename}-{uuid}-signals.parquet")
+    print("Exporting Parquet to: " + targetfile)
+    mdf.export(fmt="parquet", filename=targetfile, raw=False, empty_channels="skip", ignore_value2text_conversions = False, time_from_zero=False)
+
 # Writes a gzipped CSV file using the uuid as name
 def writeCsv(basename, mdf, uuid, target):
     # open the file in the write mode
     with gzip.open(os.path.join(target, f"{basename}-{uuid}-signalscsv.gz"), 'wt') as csvFile:
 
-        print("Exporting to: " + csvFile.name)
+        print("Exporting CSV to: " + csvFile.name)
 
         writer = csv.writer(csvFile)
         writer.writerow(["source_file","source_uuid", "name", "unit", "relativeTimestamp", "absoluteTimestamp", "value", "value_string", "source_type", "bus_type"])
@@ -103,9 +107,13 @@ def processFile(filename):
     
     if (args.dump):
         dumpSignals(basename, mdf, file_uuid)
-    else:         
+
+    if (args.exportFormat == "parquet"):         
         writeMetadata(basename, mdf, file_uuid, args.target)
-        writeCsv(basename, mdf, file_uuid, args.target)
+        writeParquet(basename, mdf, file_uuid, args.target)
+    else:
+        writeMetadata(basename, mdf, file_uuid, args.target)
+        writeCsv(basename, mdf, file_uuid, args.target)        
 
 # Process a complete directory
 def processDirectory(directoryname):
@@ -114,11 +122,12 @@ def processDirectory(directoryname):
             processFile(os.path.join(directoryname, path))
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Process a single MDF-4 or directory with MDF-4 files into CSV Files")
+    parser = argparse.ArgumentParser(description="Process a single MDF-4 or directory with MDF-4 files into CSV or Parquet Files")
     parser.add_argument("-f", "--file", dest="file", help="Path to a single MDF-4 file")
     parser.add_argument("-d", "--directory", dest="directory", help="Path to a directory with MDF-4 files")
-    parser.add_argument("-t", "--target", dest="target", default=".", help="Location where the processed CSV files will be stored")
+    parser.add_argument("-t", "--target", dest="target", default=".", help="Location where the processed files will be stored")
     parser.add_argument("--dump", dest="dump", action="store_true", help="Shows the content of the files")
+    parser.add_argument("--format", dest="exportFormat", default="csv", help="Use csv or parquet to select your export format")
     args = parser.parse_args()
 
     if(args.file):

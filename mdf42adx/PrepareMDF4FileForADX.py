@@ -52,7 +52,7 @@ def writeMetadata(basename, mdf, uuid, target):
     with open(os.path.join(target, f"{basename}-{uuid}.metadata.json"), 'w') as metadataFile:
         metadata = {
             "name": basename,
-            "uuid": str(uuid),
+            "source_uuid": str(uuid),
             "preparation-startDate": str(datetime.utcnow()),
             "signals": allSignalMetadata,
             "comments": mdf.header.comment

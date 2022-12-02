@@ -39,10 +39,22 @@ def dumpSignals(basename, mdf, uuid):
 
 # Creates a metadata file for the MDF-4
 def writeMetadata(basename, mdf, uuid, target):
+
+    allSignalMetadata = []
+    for signal in mdf.iter_channels():
+        allSignalMetadata.append(
+            {
+                "name": signal.name,
+                "comment": signal.comment
+            }
+        )
+
     with open(os.path.join(target, f"{basename}-{uuid}.metadata.json"), 'w') as metadataFile:
         metadata = {
             "name": basename,
             "uuid": str(uuid),
+            "preparation-startDate": str(datetime.utcnow()),
+            "signals": allSignalMetadata,
             "comments": mdf.header.comment
         }
         metadataFile.write(json.dumps(metadata))
@@ -56,7 +68,7 @@ def writeParquet(basename, mdf, uuid, target):
 # Writes a gzipped CSV file using the uuid as name
 def writeCsv(basename, mdf, uuid, target):
     # open the file in the write mode
-    with gzip.open(os.path.join(target, f"{basename}-{uuid}-signalscsv.gz"), 'wt') as csvFile:
+    with gzip.open(os.path.join(target, f"{basename}-{uuid}-signals.csv.gz"), 'wt') as csvFile:
 
         print(f"Exporting CSV to: {csvFile.name}")
 

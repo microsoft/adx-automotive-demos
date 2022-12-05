@@ -38,7 +38,7 @@ def dumpSignals(basename, mdf, uuid):
             )
 
 # Creates a metadata file for the MDF-4
-def writeMetadata(basename, mdf, uuid, target):
+def writeMetadata(basename, mdf, uuid, target, numberOfChunks):
 
     allSignalMetadata = []
     for signal in mdf.iter_channels():
@@ -55,7 +55,8 @@ def writeMetadata(basename, mdf, uuid, target):
             "source_uuid": str(uuid),
             "preparation_startDate": str(datetime.utcnow()),
             "signals_description": allSignalMetadata,
-            "comments": mdf.header.comment
+            "comments": mdf.header.comment,
+            "numberOfChunks": numberOfChunks
         }
         metadataFile.write(json.dumps(metadata))
 
@@ -66,60 +67,70 @@ def writeParquet(basename, mdf, uuid, target):
     mdf.export(fmt="parquet", filename=targetfile, raw=False, empty_channels="skip", ignore_value2text_conversions = False, time_from_zero=False, compression="GZIP")
 
 # Writes a gzipped CSV file using the uuid as name
+# It will write a file for each individual signal
 def writeCsv(basename, mdf, uuid, target):
-    # open the file in the write mode
-    with gzip.open(os.path.join(target, f"{basename}-{uuid}-signals.csv.gz"), 'wt') as csvFile:
-
-        print(f"Exporting CSV to: {csvFile.name}")
-
-        writer = csv.writer(csvFile)
-        writer.writerow(["source_uuid", "name", "unit", "relativeTimestamp", "absoluteTimestamp", "value", "value_string", "source_type", "bus_type", "timeDifference"])
 
         # Start time of the recording
         recordingStartTime = mdf.header.start_time
 
+        # Initial counter
+        counter = 0
+
+        # Iterate over the signals
         for signals in mdf.iter_channels():            
+            
+            # open the file in the write mode
+            with gzip.open(os.path.join(target, f"{basename}-{uuid}-{counter}.csv.gz"), 'wt') as csvFile:
 
-            try:
-                numericSignals = signals.samples.astype(np.double)
-                stringSignals = np.empty(len(signals.timestamps), dtype=str)
-                importType = "numeric"
-            except:
-                numericSignals = np.full(len(signals.timestamps), dtype=np.double, fill_value=0)
-                stringSignals = signals.samples.astype(str)
-                importType = "string"
-
-            print(f"Exporting signal: {signals.name} as type {importType}")               
-
-            previousRecordTime = 0
-
-            for indx in range(0, len(signals.timestamps)):
-
-                currentRecordTime = signals.timestamps[indx]
+                writer = csv.writer(csvFile)
+                writer.writerow(["source_uuid", "name", "unit", "relativeTimestamp", "absoluteTimestamp", "value", "value_string", "source_type", "bus_type", "timeDifference"])
 
                 try:
-                    numericValue = float(signals.samples[indx])
+                    numericSignals = signals.samples.astype(np.double)
+                    stringSignals = np.empty(len(signals.timestamps), dtype=str)
+                    importType = "numeric"
                 except:
-                    numericValue = "",
+                    numericSignals = np.full(len(signals.timestamps), dtype=np.double, fill_value=0)
+                    stringSignals = signals.samples.astype(str)
+                    importType = "string"
+                
+                print(f"Exporting signal: {signals.name} as type {importType} to file {csvFile.name}")
 
-                writer.writerow(
-                    [
-                        str(uuid),
-                        signals.name, 
-                        signals.unit, 
-                        currentRecordTime,
-                        recordingStartTime + timedelta(seconds=currentRecordTime),
-                        numericSignals[indx],
-                        stringSignals[indx],
-                        signals.source.source_type,
-                        signals.source.bus_type,
-                        currentRecordTime - previousRecordTime
-                    ]
-                )
 
-                previousRecordTime = currentRecordTime
+                # Iterate on the entries for the signal
+                previousRecordTime = 0
 
-    csvFile.close()
+                for indx in range(0, len(signals.timestamps)):
+
+                    currentRecordTime = signals.timestamps[indx]
+
+                    try:
+                        numericValue = float(signals.samples[indx])
+                    except:
+                        numericValue = "",
+
+                    writer.writerow(
+                        [
+                            str(uuid),
+                            signals.name, 
+                            signals.unit, 
+                            currentRecordTime,
+                            recordingStartTime + timedelta(seconds=currentRecordTime),
+                            numericSignals[indx],
+                            stringSignals[indx],
+                            signals.source.source_type,
+                            signals.source.bus_type,
+                            currentRecordTime - previousRecordTime
+                        ]
+                    )
+
+                    previousRecordTime = currentRecordTime
+
+            csvFile.close()
+
+            counter +=  1
+            
+        return counter
 
 # Process a single file
 def processFile(filename):    
@@ -135,11 +146,11 @@ def processFile(filename):
         dumpSignals(basename, mdf, file_uuid)
 
     if (args.exportFormat == "parquet"):         
-        writeMetadata(basename, mdf, file_uuid, args.target)
         writeParquet(basename, mdf, file_uuid, args.target)
-    else:
-        writeMetadata(basename, mdf, file_uuid, args.target)
-        writeCsv(basename, mdf, file_uuid, args.target)        
+        writeMetadata(basename, mdf, file_uuid, args.target, 0)
+    else:        
+        numberOfChunks = writeCsv(basename, mdf, file_uuid, args.target)        
+        writeMetadata(basename, mdf, file_uuid, args.target, numberOfChunks)
 
     end_time = time.time() - start_time
     print (f"Processing {filename} took {end_time}")

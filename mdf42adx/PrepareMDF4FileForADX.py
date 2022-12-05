@@ -53,8 +53,8 @@ def writeMetadata(basename, mdf, uuid, target):
         metadata = {
             "name": basename,
             "source_uuid": str(uuid),
-            "preparation-startDate": str(datetime.utcnow()),
-            "signals": allSignalMetadata,
+            "preparation_startDate": str(datetime.utcnow()),
+            "signals_description": allSignalMetadata,
             "comments": mdf.header.comment
         }
         metadataFile.write(json.dumps(metadata))

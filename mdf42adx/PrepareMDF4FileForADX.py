@@ -59,6 +59,8 @@ def writeMetadata(basename, mdf, uuid, target, numberOfChunks):
             "numberOfChunks": numberOfChunks
         }
         metadataFile.write(json.dumps(metadata))
+       
+    metadataFile.close()
 
 # Create a parquet file for the MDF
 def writeParquet(basename, mdf, uuid, target):    

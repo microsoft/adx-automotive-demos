@@ -58,6 +58,8 @@ def writeMetadata(basename, mdf, uuid, target):
             "comments": mdf.header.comment
         }
         metadataFile.write(json.dumps(metadata))
+       
+    metadataFile.close()
 
 # Create a parquet file for the MDF
 def writeParquet(basename, mdf, uuid, target):    

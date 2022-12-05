@@ -73,7 +73,7 @@ def writeCsv(basename, mdf, uuid, target):
         print(f"Exporting CSV to: {csvFile.name}")
 
         writer = csv.writer(csvFile)
-        writer.writerow(["source_uuid", "name", "unit", "relativeTimestamp", "absoluteTimestamp", "value", "value_string", "source_type", "bus_type"])
+        writer.writerow(["source_uuid", "name", "unit", "relativeTimestamp", "absoluteTimestamp", "value", "value_string", "source_type", "bus_type", "timeDifference"])
 
         # Start time of the recording
         recordingStartTime = mdf.header.start_time
@@ -91,7 +91,11 @@ def writeCsv(basename, mdf, uuid, target):
 
             print(f"Exporting signal: {signals.name} as type {importType}")               
 
+            previousRecordTime = 0
+
             for indx in range(0, len(signals.timestamps)):
+
+                currentRecordTime = signals.timestamps[indx]
 
                 try:
                     numericValue = float(signals.samples[indx])
@@ -103,14 +107,17 @@ def writeCsv(basename, mdf, uuid, target):
                         str(uuid),
                         signals.name, 
                         signals.unit, 
-                        signals.timestamps[indx],
-                        recordingStartTime + timedelta(seconds=signals.timestamps[indx]),
+                        currentRecordTime,
+                        recordingStartTime + timedelta(seconds=currentRecordTime),
                         numericSignals[indx],
                         stringSignals[indx],
                         signals.source.source_type,
-                        signals.source.bus_type
+                        signals.source.bus_type,
+                        currentRecordTime - previousRecordTime
                     ]
                 )
+
+                previousRecordTime = currentRecordTime
 
     csvFile.close()
 

@@ -6,12 +6,12 @@ The PrepareMDF4FileForADX will take a MDF-4 file as argument and create a CSV fi
 
 # Usage
 - Create a python virtual environment using the provided requirements.txt
-- Execute the commmand using
+- Execute the following command to see available options
 
 ``` bash
-python PrepareMDF4FileForADX.py <file.mdf>
+python PrepareMDF4FileForADX.py --help
 ```
 
 The script will create two files using a new UUID 
-- A gzipped CSV file that can be used with the ADX "Ingest Data" function
+- Several gzipped CSV files that can be used with the ADX "Ingest Data" function
 - A file containing extracted metadata

@@ -12,29 +12,35 @@ from pathlib import Path
 import time
 import numpy as np
 import uuid
-from concurrent.futures import ProcessPoolExecutor 
+import pyarrow as pa
+import pyarrow.parquet as pq
+from asammdf.blocks import v4_constants as v4c
 
 # Iterates over all signals and prints them to the console
 def dumpSignals(basename, mdf, uuid):
        
-    for signals in mdf.iter_channels():
+    for counter, signal in enumerate(mdf.iter_channels()):
 
         try:
-            numericSignals = signals.samples.astype(np.double)
-        except:     
-            numericSignals = np.empty(len(signals.timestamps))   
+            numericSignals = signal.samples.astype(np.double)
+            stringSignals = np.empty(len(signal.timestamps), dtype=str)            
+        except:
+            numericSignals = np.full(len(signal.timestamps), dtype=np.double, fill_value=0)            
+            stringSignals = signal.samples.astype(str)       
 
-        for indx in range(0, len(signals.timestamps)):                               
+        for indx in range(0, len(signal.timestamps)):                               
 
            print(
                 [
                     str(uuid),
-                    signals.name, 
-                    signals.unit, 
-                    signals.timestamps[indx],
-                    numericSignals[indx],
-                    signals.source.source_type,
-                    signals.source.bus_type
+                    signal.name, 
+                    signal.unit, 
+                    signal.timestamps[indx],
+                    numericSignals[indx],            
+                    stringSignals[indx],
+                    signal.source.name,
+                    v4c.SOURCE_TYPE_TO_STRING[signal.source.source_type],
+                    v4c.BUS_TYPE_TO_STRING[signal.source.bus_type]
                 ]
             )
 
@@ -65,96 +71,54 @@ def writeMetadata(basename, mdf, uuid, target, numberOfChunks):
     metadataFile.close()
 
 # Create a parquet file for the MDF
-def writeParquet(basename, mdf, uuid, target):    
-    targetfile = os.path.join(target, f"{basename}-{uuid}-signals.parquet")
-    print(f"Exporting Parquet to: {targetfile}")
-    mdf.export(fmt="parquet", filename=targetfile, raw=False, empty_channels="skip", ignore_value2text_conversions = False, time_from_zero=False, compression="GZIP")
+def writeParquet(basename, mdf, uuid, target):               
 
+    targetfile = os.path.join(target, f"{basename}-{uuid}.parquet")
 
-# Writes a gzipped CSV file using the uuid as name
-# It will write a file for each individual signal
-def writeJson(basename, mdf, uuid, target):
+    writer = None
 
-        # Start time of the recording
-        recordingStartTime = mdf.header.start_time
+    # Iterate over the signals
+    for counter, signal in enumerate(mdf.iter_channels()):            
 
-        rowsCounter = 0
+        start_signal_time = time.time()
 
-        allSignals = []
-
-        # Iterate over the signals
-        for counter, signal in enumerate(mdf.iter_channels()):            
-
-            try:
-                numericSignals = signal.samples.astype(np.double)
-                stringSignals = np.empty(len(signal.timestamps), dtype=str)
-                importType = "numeric"
-            except:
-                numericSignals = np.full(len(signal.timestamps), dtype=np.double, fill_value=0)
-                stringSignals = signal.samples.astype(str)
-                importType = "string"
-            
-            print(f"Exporting signal {counter}: {signal.name} as type {importType}")
-
-                            
-            data = {
-                "source_uuid" : str(uuid),
-                "name" : signal.name,
-                "source_type": signal.source.source_type,
-                "bus_type" : signal.source.bus_type,
-                "entries": []
-            }
-
-            # Iterate on the entries for the signal
-            previousRelativeTimestamp = 0
-
-            for indx in range(0, len(signal.timestamps)):
-
-                relativeTimestamp = signal.timestamps[indx]
-
-                try:
-                    numericValue = float(signal.samples[indx])
-                except:
-                    numericValue = "",
-
-                data["entries"].append(
-                        {
-                            "t" : relativeTimestamp,
-                            #str(recordingStartTime + timedelta(seconds=relativeTimestamp)),
-                            "d": numericSignals[indx],
-                            "s": str(stringSignals[indx]),
-                            #relativeTimestamp - previousRelativeTimestamp
-                        }
-                )
-
-                previousRelativeTimestamp = relativeTimestamp
-
-                        
-            allSignals.append(data)
-      
-
-            # Lets decide if we need to write the file - either when we reach x rows or if this is the last pass
-            rowsCounter += len(signal.timestamps)
-                
-            if (rowsCounter > 10000000):            
-                #with ProcessPoolExecutor() as executor:
-                writeJsonFile(target, basename, uuid, counter, allSignals)
-                counter += 1
-                rowsCounter = 0
-                allSignals = []
-
-
-        return counter
-
-def writeJsonFile(target, basename, uuid, counter, allSignals):
-    with gzip.open(os.path.join(target, f"{basename}-{uuid}-{counter}.json.gz"), 'wt') as jsonFile:
-    #with open(os.path.join(target, f"{basename}-{uuid}-{counter}.json"), 'wt') as jsonFile:
         try:
-            print(f"Writing file {jsonFile.name}")
-            #json.dump(allSignals, jsonFile)
+            numericSignals = signal.samples.astype(np.double)
+            stringSignals = np.empty(len(signal.timestamps), dtype=str)            
         except:
-            print("Failed to dump JSON")
+            numericSignals = np.full(len(signal.timestamps), dtype=np.double, fill_value=0)            
+            stringSignals = signal.samples.astype(str)       
 
+        try:
+            table = pa.table (
+                {                   
+                    "source_uuid": np.full(len(signal.timestamps), str(uuid), dtype=object),
+                    "name": np.full(len(signal.timestamps), signal.name, dtype=object),
+                    "unit": np.full(len(signal.timestamps), signal.unit, dtype=object),
+                    "timestamp": signal.timestamps,
+                    "value": numericSignals,
+                    "value_string": stringSignals,
+                    "source": np.full(len(signal.timestamps), signal.source.name, dtype=object),
+                    "source_type": np.full(len(signal.timestamps), v4c.SOURCE_TYPE_TO_STRING[signal.source.source_type], dtype=object),
+                    "bus_type": np.full(len(signal.timestamps), v4c.BUS_TYPE_TO_STRING[signal.source.bus_type], dtype=object)
+                }
+            ) 
+
+            # Create the writer for the parquet file and write the table
+            if writer is None:
+                writer = pq.ParquetWriter(targetfile, table.schema, compression="GZIP")
+
+            writer.write_table(table)
+
+        except Exception as e:
+            print(f"Signal {counter}: {signal.name} with {len(signal.timestamps)} failed: {e}")    
+
+        end_signal_time = time.time() - start_signal_time
+        print(f"Signal {counter}: {signal.name} with {len(signal.timestamps)} entries took {end_signal_time}")
+
+    writer.close()
+
+    return counter
 
 # Writes a gzipped CSV file using the uuid as name
 # It will write a file for each individual signal
@@ -173,7 +137,7 @@ def writeCsv(basename, mdf, uuid, target):
             with gzip.open(os.path.join(target, f"{basename}-{uuid}-{counter}.csv.gz"), 'wt') as csvFile:
 
                 writer = csv.writer(csvFile)
-                writer.writerow(["source_uuid", "name", "unit", "relativeTimestamp", "absoluteTimestamp", "value", "value_string", "source_type", "bus_type", "timeDifference"])
+                writer.writerow(["source_uuid", "name", "unit", "relativeTimestamp", "absoluteTimestamp", "value", "value_string", "source", "source_type", "bus_type", "timeDifference"])
 
                 try:
                     numericSignals = signals.samples.astype(np.double)
@@ -208,8 +172,9 @@ def writeCsv(basename, mdf, uuid, target):
                             recordingStartTime + timedelta(seconds=currentRecordTime),
                             numericSignals[indx],
                             stringSignals[indx],
-                            signals.source.source_type,
-                            signals.source.bus_type,
+                            signals.source.name,
+                            v4c.SOURCE_TYPE_TO_STRING[signals.source.source_type],
+                            v4c.BUS_TYPE_TO_STRING[signals.source.bus_type],
                             currentRecordTime - previousRecordTime
                         ]
                     )
@@ -237,10 +202,9 @@ def processFile(filename):
 
     numberOfChunks = 0
 
+    # Use the right method based on the format
     if (args.exportFormat == "parquet"):         
         numberOfChunks = writeParquet(basename, mdf, file_uuid, args.target)
-    if (args.exportFormat == "json"):
-        numberOfChunks = writeJson(basename, mdf, file_uuid, args.target)
     else:        
         numberOfChunks = writeCsv(basename, mdf, file_uuid, args.target)        
     

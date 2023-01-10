@@ -12,6 +12,7 @@ from pathlib import Path
 import time
 import numpy as np
 import uuid
+from concurrent.futures import ProcessPoolExecutor 
 
 # Iterates over all signals and prints them to the console
 def dumpSignals(basename, mdf, uuid):
@@ -50,6 +51,7 @@ def writeMetadata(basename, mdf, uuid, target, numberOfChunks):
         )
 
     with open(os.path.join(target, f"{basename}-{uuid}.metadata.json"), 'w') as metadataFile:
+        
         metadata = {
             "name": basename,
             "source_uuid": str(uuid),
@@ -67,6 +69,92 @@ def writeParquet(basename, mdf, uuid, target):
     targetfile = os.path.join(target, f"{basename}-{uuid}-signals.parquet")
     print(f"Exporting Parquet to: {targetfile}")
     mdf.export(fmt="parquet", filename=targetfile, raw=False, empty_channels="skip", ignore_value2text_conversions = False, time_from_zero=False, compression="GZIP")
+
+
+# Writes a gzipped CSV file using the uuid as name
+# It will write a file for each individual signal
+def writeJson(basename, mdf, uuid, target):
+
+        # Start time of the recording
+        recordingStartTime = mdf.header.start_time
+
+        rowsCounter = 0
+
+        allSignals = []
+
+        # Iterate over the signals
+        for counter, signal in enumerate(mdf.iter_channels()):            
+
+            try:
+                numericSignals = signal.samples.astype(np.double)
+                stringSignals = np.empty(len(signal.timestamps), dtype=str)
+                importType = "numeric"
+            except:
+                numericSignals = np.full(len(signal.timestamps), dtype=np.double, fill_value=0)
+                stringSignals = signal.samples.astype(str)
+                importType = "string"
+            
+            print(f"Exporting signal {counter}: {signal.name} as type {importType}")
+
+                            
+            data = {
+                "source_uuid" : str(uuid),
+                "name" : signal.name,
+                "source_type": signal.source.source_type,
+                "bus_type" : signal.source.bus_type,
+                "entries": []
+            }
+
+            # Iterate on the entries for the signal
+            previousRelativeTimestamp = 0
+
+            for indx in range(0, len(signal.timestamps)):
+
+                relativeTimestamp = signal.timestamps[indx]
+
+                try:
+                    numericValue = float(signal.samples[indx])
+                except:
+                    numericValue = "",
+
+                data["entries"].append(
+                        {
+                            "t" : relativeTimestamp,
+                            #str(recordingStartTime + timedelta(seconds=relativeTimestamp)),
+                            "d": numericSignals[indx],
+                            "s": str(stringSignals[indx]),
+                            #relativeTimestamp - previousRelativeTimestamp
+                        }
+                )
+
+                previousRelativeTimestamp = relativeTimestamp
+
+                        
+            allSignals.append(data)
+      
+
+            # Lets decide if we need to write the file - either when we reach x rows or if this is the last pass
+            rowsCounter += len(signal.timestamps)
+                
+            if (rowsCounter > 10000000):            
+                #with ProcessPoolExecutor() as executor:
+                writeJsonFile(target, basename, uuid, counter, allSignals)
+                counter += 1
+                rowsCounter = 0
+                allSignals = []
+
+
+        return counter
+
+def writeJsonFile(target, basename, uuid, counter, allSignals):
+    with gzip.open(os.path.join(target, f"{basename}-{uuid}-{counter}.json.gz"), 'wt') as jsonFile:
+    #with open(os.path.join(target, f"{basename}-{uuid}-{counter}.json"), 'wt') as jsonFile:
+        try:
+            print(f"Writing file {jsonFile.name}")
+            #json.dump(allSignals, jsonFile)
+        except:
+            print("Failed to dump JSON")
+
 
 # Writes a gzipped CSV file using the uuid as name
 # It will write a file for each individual signal
@@ -147,12 +235,16 @@ def processFile(filename):
     if (args.dump):
         dumpSignals(basename, mdf, file_uuid)
 
+    numberOfChunks = 0
+
     if (args.exportFormat == "parquet"):         
-        writeParquet(basename, mdf, file_uuid, args.target)
-        writeMetadata(basename, mdf, file_uuid, args.target, 0)
+        numberOfChunks = writeParquet(basename, mdf, file_uuid, args.target)
+    if (args.exportFormat == "json"):
+        numberOfChunks = writeJson(basename, mdf, file_uuid, args.target)
     else:        
         numberOfChunks = writeCsv(basename, mdf, file_uuid, args.target)        
-        writeMetadata(basename, mdf, file_uuid, args.target, numberOfChunks)
+    
+    writeMetadata(basename, mdf, file_uuid, args.target, numberOfChunks)
 
     end_time = time.time() - start_time
     print (f"Processing {filename} took {end_time}")

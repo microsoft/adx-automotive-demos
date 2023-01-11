@@ -106,7 +106,7 @@ def writeParquet(basename, mdf, uuid, target):
 
             # Create the writer for the parquet file and write the table
             if writer is None:
-                writer = pq.ParquetWriter(targetfile, table.schema, compression="GZIP")
+                writer = pq.ParquetWriter(targetfile, table.schema, compression="SNAPPY")
 
             writer.write_table(table)
 

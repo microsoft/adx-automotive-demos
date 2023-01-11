@@ -9,7 +9,7 @@ import json
 import os
 import pandas as pd
 from pathlib import Path
-import time
+import time 
 import numpy as np
 import uuid
 import pyarrow as pa
@@ -47,25 +47,33 @@ def dumpSignals(basename, mdf, uuid):
 # Creates a metadata file for the MDF-4
 def writeMetadata(basename, mdf, uuid, target, numberOfChunks):
 
-    allSignalMetadata = []
-    for signal in mdf.iter_channels():
-        allSignalMetadata.append(
-            {
-                "name": signal.name,
-                "comment": signal.comment
-            }
-        )
-
     with open(os.path.join(target, f"{basename}-{uuid}.metadata.json"), 'w') as metadataFile:
         
         metadata = {
             "name": basename,
             "source_uuid": str(uuid),
             "preparation_startDate": str(datetime.utcnow()),
-            "signals_description": allSignalMetadata,
+            "signals": [],
             "comments": mdf.header.comment,
             "numberOfChunks": numberOfChunks
         }
+
+
+        for signal in mdf.iter_channels():
+            metadata["signals"].append(
+                {
+                    "name": signal.name,
+                    "unit": signal.unit,
+                    "comment": signal.comment,
+                    "group_index": signal.group_index,
+                    "channel_index": signal.channel_index,
+                    "group_name": mdf.groups[signal.group_index].channel_group.acq_name,
+                    "source" : signal.source.name,
+                    "source_type": v4c.SOURCE_TYPE_TO_STRING[signal.source.source_type],
+                    "bus_type": v4c.BUS_TYPE_TO_STRING[signal.source.bus_type],
+                }          
+            )
+
         metadataFile.write(json.dumps(metadata))
        
     metadataFile.close()
@@ -118,7 +126,7 @@ def writeParquet(basename, mdf, uuid, target):
 
     writer.close()
 
-    return counter
+    return 1
 
 # Writes a gzipped CSV file using the uuid as name
 # It will write a file for each individual signal
@@ -148,7 +156,7 @@ def writeCsv(basename, mdf, uuid, target):
                     stringSignals = signals.samples.astype(str)
                     importType = "string"
                 
-                print(f"Exporting signal: {signals.name} as type {importType} to file {csvFile.name}")
+                print(f"Exporting signal: {signals.name} to file {csvFile.name}")
 
 
                 # Iterate on the entries for the signal
@@ -205,8 +213,11 @@ def processFile(filename):
     # Use the right method based on the format
     if (args.exportFormat == "parquet"):         
         numberOfChunks = writeParquet(basename, mdf, file_uuid, args.target)
-    else:        
+    elif (args.exportFormat == "csv"):        
         numberOfChunks = writeCsv(basename, mdf, file_uuid, args.target)        
+    else:
+        print("No export Format selected, use --format with parquet or csv")
+
     
     writeMetadata(basename, mdf, file_uuid, args.target, numberOfChunks)
 

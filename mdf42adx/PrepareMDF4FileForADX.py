@@ -81,13 +81,11 @@ def writeMetadata(basename, mdf, uuid, target, numberOfChunks):
 # Create a parquet file for the MDF
 def writeParquet(basename, mdf, uuid, target):               
 
-    targetfile = os.path.join(target, f"{basename}-{uuid}.parquet")
-
-    writer = None
+    targetdir = os.path.join(target, f"{basename}-{uuid}")
 
     # Iterate over the signals
     for counter, signal in enumerate(mdf.iter_channels()):            
-
+        
         start_signal_time = time.time()
 
         try:
@@ -95,7 +93,8 @@ def writeParquet(basename, mdf, uuid, target):
             stringSignals = np.empty(len(signal.timestamps), dtype=str)            
         except:
             numericSignals = np.full(len(signal.timestamps), dtype=np.double, fill_value=0)            
-            stringSignals = signal.samples.astype(str)       
+            stringSignals = signal.samples.astype(str)               
+
 
         try:
             table = pa.table (
@@ -111,12 +110,9 @@ def writeParquet(basename, mdf, uuid, target):
                     "bus_type": np.full(len(signal.timestamps), v4c.BUS_TYPE_TO_STRING[signal.source.bus_type], dtype=object)
                 }
             ) 
-
-            # Create the writer for the parquet file and write the table
-            if writer is None:
-                writer = pq.ParquetWriter(targetfile, table.schema, compression="SNAPPY")
-
-            writer.write_table(table)
+            
+            # Write using the signals as partition. By default it writes the files with multiple cores
+            pq.write_to_dataset(table, root_path=targetdir, partition_cols=["name"])
 
         except Exception as e:
             print(f"Signal {counter}: {signal.name} with {len(signal.timestamps)} failed: {e}")    
@@ -124,7 +120,7 @@ def writeParquet(basename, mdf, uuid, target):
         end_signal_time = time.time() - start_signal_time
         print(f"Signal {counter}: {signal.name} with {len(signal.timestamps)} entries took {end_signal_time}")
 
-    writer.close()
+    #writer.close()
 
     return 1
 

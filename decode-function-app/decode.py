@@ -5,45 +5,49 @@ import logging
 import tempfile
 import gzip
 import uuid
-import numpy as np
-import pandas as pd
-from asammdf import MDF
 from datetime import datetime, timedelta
+import numpy as np
+from asammdf import MDF
+from asammdf.blocks import v4_constants as v4c
+
+import pandas as pd
+import pyarrow as pa
+import pyarrow.parquet as pq
+
 
 import azure.functions as func
 from azure.storage.blob import BlobServiceClient
 from azure.identity import DefaultAzureCredential
 
-"""
-
-# Create a parquet file for the MDF
-def writeParquet(parquet_file, mdf):    
-    mdf.export(fmt="parquet", filename=parquet_file, raw=False, empty_channels="skip", ignore_value2text_conversions = False, time_from_zero=False, compression="GZIP")
-
-"""
 
 # Creates a metadata file for the MDF-4
-def writeMetadata(meta_LOCALFILE, metadata_BLOBNAME, mdf, str_file_id, data_file, numberOfChunks , blob_service_client_instance, curated_CONTAINERNAME):
-
-    # initialize signal's meta data
-    allSignalMetadata = []
-    for signal in mdf.iter_channels():
-        allSignalMetadata.append(
-            {
-                "name": signal.name,
-                "comment": signal.comment
-            }
-        )
+def writeMetadata(numberOfChunks, meta_LOCALFILE, metadata_BLOBNAME, mdf, str_file_id, data_file , blob_service_client_instance, curated_CONTAINERNAME):
 
     with open(meta_LOCALFILE, 'w') as metadataFile:
         metadata = {
             "name": data_file,
             "source_uuid": str_file_id,
             "preparation_startDate": str(datetime.utcnow()),
-            "signals_description": allSignalMetadata,
+            "signals": [],
             "comments": mdf.header.comment,
-            "numberOfChunks": str(numberOfChunks + 1)
+            "numberOfChunks": numberOfChunks
         }
+
+        for signal in mdf.iter_channels():
+            metadata["signals"].append(
+                {
+                    "name": signal.name,
+                    "unit": signal.unit,
+                    "comment": signal.comment,
+                    "group_index": signal.group_index,
+                    "channel_index": signal.channel_index,
+                    "group_name": mdf.groups[signal.group_index].channel_group.acq_name,
+                    "source" : signal.source.name,
+                    "source_type": v4c.SOURCE_TYPE_TO_STRING[signal.source.source_type],
+                    "bus_type": v4c.BUS_TYPE_TO_STRING[signal.source.bus_type],
+                }          
+            )
+
         metadataFile.write(json.dumps(metadata))
 
     metadataFile.close()
@@ -59,82 +63,65 @@ def writeMetadata(meta_LOCALFILE, metadata_BLOBNAME, mdf, str_file_id, data_file
        raise
 
 
-# Writes a gzipped CSV file using the uuid as name
-def writeCsv(csv_LOCALFILE, curated_base_BLOBNAME, mdf, str_file_id, blob_service_client_instance, curated_CONTAINERNAME):
-
-    # Start time of the recording
-    recordingStartTime = mdf.header.start_time
-
-    # Initial counter
-    counter = 0
+# Creates and Writes parquet file from mdf
+def writeParquet(parquet_tempFilePath, parquet_LOCALFILE, curated_base_BLOBNAME, mdf, str_file_id, blob_service_client_instance, curated_CONTAINERNAME):
+    
 
     # Iterate over the signals
-    for signals in mdf.iter_channels(): 
-        
-        # open the file in the write mode
-        with gzip.open(csv_LOCALFILE, 'wt') as csvFile:
+    for counter, signal in enumerate(mdf.iter_channels()):
 
-            writer = csv.writer(csvFile)
-            writer.writerow(["source_uuid", "name", "unit", "relativeTimestamp", "absoluteTimestamp", "value", "value_string", "source_type", "bus_type"])
+        writer = None            
+        start_signal_time = time.time()
 
-            try:
-                numericSignals = signals.samples.astype(np.double)
-                stringSignals = np.empty(len(signals.timestamps), dtype=str)
-                importType = "numeric"
-            except:
-                numericSignals = np.full(len(signals.timestamps), dtype=np.double, fill_value=0)
-                stringSignals = signals.samples.astype(str)
-                importType = "string"
-
-            logging.info(f"Exporting signal: {signals.name} as type {importType}")               
-
-            for indx in range(0, len(signals.timestamps)):
-
-                try:
-                    numericValue = float(signals.samples[indx])
-                except:
-                    numericValue = "",
-
-                writer.writerow(
-                    [
-                        str_file_id,
-                        signals.name, 
-                        signals.unit, 
-                        signals.timestamps[indx],
-                        recordingStartTime + timedelta(seconds=signals.timestamps[indx]),
-                        numericSignals[indx],
-                        stringSignals[indx],
-                        signals.source.source_type,
-                        signals.source.bus_type
-                    ]
-                )
-        
-        csvFile.close()
-       
-        # Upload csv file to curated container
-        chunk_BLONNAME = str(curated_base_BLOBNAME + '-' + str_file_id + '-' + str(counter) + '.csv.gz')
-        # upload 4 MB for each request
-        chunk_size = 4*1024*1024
         try:
-            curated_blob_client_instance = blob_service_client_instance.get_blob_client(container=curated_CONTAINERNAME, blob= chunk_BLONNAME)
-            if(curated_blob_client_instance.exists):
-                curated_blob_client_instance.delete_blob()
-                curated_blob_client_instance.create_append_blob()
-            with open(csv_LOCALFILE, mode="rb") as data_stream:
-                while True:
-                    read_data = data_stream.read(chunk_size)
-                    if not read_data:
-                        break 
-                    curated_blob_client_instance.append_block(read_data)
-                # curated_blob_client_instance.upload_blob(data)
-            logging.info("\n CSV file to Azure Storage as blob:\n\t" + chunk_BLONNAME)  
+            numericSignals = signal.samples.astype(np.double)
+            stringSignals = np.empty(len(signal.timestamps), dtype=str)            
         except:
-            logging.info("cannot upload new chunk CSV file, file might be already exist: "  + chunk_BLONNAME)
-            raise
-        
-        counter +=1
+            numericSignals = np.full(len(signal.timestamps), dtype=np.double, fill_value=0)            
+            stringSignals = signal.samples.astype(str)       
 
-    return counter 
+        try:
+            table = pa.table (
+                {                   
+                    "source_uuid": np.full(len(signal.timestamps), str_file_id, dtype=object),
+                    "name": np.full(len(signal.timestamps), signal.name, dtype=object),
+                    "unit": np.full(len(signal.timestamps), signal.unit, dtype=object),
+                    "timestamp": signal.timestamps,
+                    "value": numericSignals,
+                    "value_string": stringSignals,
+                    "source": np.full(len(signal.timestamps), signal.source.name, dtype=object),
+                    "source_type": np.full(len(signal.timestamps), v4c.SOURCE_TYPE_TO_STRING[signal.source.source_type], dtype=object),
+                    "bus_type": np.full(len(signal.timestamps), v4c.BUS_TYPE_TO_STRING[signal.source.bus_type], dtype=object)
+                }
+            ) 
+
+            # Create the writer for the parquet file and write the table
+            if writer is None:
+                writer = pq.ParquetWriter(parquet_LOCALFILE, table.schema, compression="SNAPPY")
+            
+            # pq.write_to_dataset(table, root_path=parquet_tempFilePath, partition_cols=["name"])
+            writer.write_table(table)
+            writer.close()
+
+        except Exception as e:
+            print(f"Signal {counter}: {signal.name} with {len(signal.timestamps)} failed: {e}")
+
+        # Upload parquet file to curated container
+        try:
+            curated_BLONNAME = str(curated_base_BLOBNAME + '-' + str_file_id + '/signal_name=' + str(signal.name) + '/' + str_file_id + '.parquet')
+            curated_blob_client_instance = blob_service_client_instance.get_blob_client(container=curated_CONTAINERNAME, blob=curated_BLONNAME)
+            with open(parquet_LOCALFILE, mode="rb") as parquet_data:
+                curated_blob_client_instance.upload_blob(data = parquet_data)
+            logging.info("\n parquet file to Azure Storage as blob:\n\t" + curated_BLONNAME)  
+        except:
+            logging.info("cannot upload new parquet file, file might be already exist: "  + curated_BLONNAME)
+            raise    
+
+        end_signal_time = time.time() - start_signal_time
+        print(f"Signal {counter}: {signal.name} with {len(signal.timestamps)} entries took {end_signal_time}")
+
+       
+    return counter
     
 
 
@@ -158,7 +145,7 @@ def main(event: func.EventGridEvent):
 
     # create temporary directory and file to placehold downloaded blob
     try:
-        tempFilePath = tempfile.gettempdir()
+        # mdf_tempFilePath = tempfile.gettempdir()
         mdf_LOCALFILE = tempfile.NamedTemporaryFile()
         logging.info('mdf file created locally')
 
@@ -184,12 +171,12 @@ def main(event: func.EventGridEvent):
     t2=time.time()
     logging.info(("It takes %s seconds to download mdf file: "+raw_BLOBNAME) % (t2 - t1))
 
-    # parse mf4 blob
+    # load mf4 file
     try:
         mdf = MDF(mdf_LOCALFILE.name)
-        logging.info('mdf version 4 parsed successfully')
+        logging.info('mdf file loaded successfully')
     except:
-        logging.info("cannot parse MDF file")
+        logging.info("cannot load MDF file")
         raise
 
     
@@ -201,25 +188,26 @@ def main(event: func.EventGridEvent):
     metadata_BLOBNAME = raw_BLOBNAME.replace('.mf4' , '-' + str_file_id + '.metadata.json')
 
 
-    # create temporary directory and file to placehold csv blob
+    # create temporary directory and file to placehold parquet blob
     try:
-        tempFilePath = tempfile.gettempdir()
-        csv_LOCALFILE = tempfile.NamedTemporaryFile()
-        logging.info('csv file created locally')
+        parquet_tempFilePath = tempfile.gettempdir()
+        parquet_LOCALFILE = tempfile.NamedTemporaryFile()
+        # parquet_rootpath = str(parquet_tempFilePath) + '/' + parquet_LOCALFILE.name + '/'
+        logging.info('parquet file created locally')
 
     except FileNotFoundError as e:
         logging.info('cannot create directory')
         raise
 
 
-    logging.info("Exporting to: " + curated_base_BLOBNAME + '-' + str_file_id + '.csv.gz' )
-    numberOfChunks = writeCsv(csv_LOCALFILE.name, curated_base_BLOBNAME, mdf, str_file_id, blob_service_client_instance, curated_CONTAINERNAME)
-    logging.info("CSV decoded file uploaded successfully")
+    logging.info("Exporting to: " + curated_base_BLOBNAME + '-' + str_file_id + '.parquet' )
+    numberOfChunks = writeParquet(parquet_tempFilePath, parquet_LOCALFILE.name, curated_base_BLOBNAME, mdf, str_file_id, blob_service_client_instance, curated_CONTAINERNAME)
+    logging.info("parquet file uploaded successfully")
 
 
      # create temporary directory and file to placehold meta blob
     try:
-        tempFilePath = tempfile.gettempdir()
+        # meta_tempFilePath = tempfile.gettempdir()
         meta_LOCALFILE = tempfile.NamedTemporaryFile()
         logging.info('meta data file created locally')
 
@@ -229,8 +217,8 @@ def main(event: func.EventGridEvent):
 
 
     logging.info("Exporting meata data to: " + metadata_BLOBNAME )
-    writeMetadata(meta_LOCALFILE.name, metadata_BLOBNAME, mdf, str_file_id, curated_base_BLOBNAME, numberOfChunks , blob_service_client_instance, curated_CONTAINERNAME)
-    logging.info("meta data file uploaded successfully")
+    writeMetadata(numberOfChunks, meta_LOCALFILE.name, metadata_BLOBNAME, mdf, str_file_id, curated_base_BLOBNAME , blob_service_client_instance, curated_CONTAINERNAME)
+    logging.info("metadata file uploaded successfully")
     
     
      

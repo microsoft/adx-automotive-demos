@@ -2,13 +2,17 @@
 // Setting up the database
 //-------------------------------
 
-// Create the table for the signals and the ingestion strategy
+// Create the table for the signals
 .create table signals (source_uuid: guid, name: string, unit: string, timestamp: real, value: real, value_string: string, source: string, source_type: string, bus_type: string) 
 
-// Create the ingestion
-.create table ['signals'] ingestion parquet mapping 'signals_parquet_mapping' '[{"column":"source_uuid", "Properties":{"Path":"$[\'source_uuid\']"}},{"column":"name", "Properties":{"Path":"$[\'name\']"}},{"column":"unit", "Properties":{"Path":"$[\'unit\']"}},{"column":"timestamp", "Properties":{"Path":"$[\'timestamp\']"}},{"column":"value", "Properties":{"Path":"$[\'value\']"}},{"column":"value_string", "Properties":{"Path":"$[\'value_string\']"}},{"column":"source", "Properties":{"Path":"$[\'source\']"}},{"column":"source_type", "Properties":{"Path":"$[\'source_type\']"}},{"column":"bus_type", "Properties":{"Path":"$[\'bus_type\']"}}]'
-
-// Create the table for the  signal metadata and the ingestion strategy
+// Create the table for the  signal metadata
 .create table signals_metadata (name: string, source_uuid: guid, preparation_startDate: datetime, signals: dynamic, comments: string, numberOfChunks: int) 
 
+
+// Create the ingestion mappings
+.create table ['signals'] ingestion parquet mapping 'signals_parquet_mapping' '[{"column":"source_uuid", "Properties":{"Path":"$[\'source_uuid\']"}},{"column":"name", "Properties":{"Path":"$[\'name\']"}},{"column":"unit", "Properties":{"Path":"$[\'unit\']"}},{"column":"timestamp", "Properties":{"Path":"$[\'timestamp\']"}},{"column":"value", "Properties":{"Path":"$[\'value\']"}},{"column":"value_string", "Properties":{"Path":"$[\'value_string\']"}},{"column":"source", "Properties":{"Path":"$[\'source\']"}},{"column":"source_type", "Properties":{"Path":"$[\'source_type\']"}},{"column":"bus_type", "Properties":{"Path":"$[\'bus_type\']"}}]'
+
+.create table ['signals'] ingestion csv mapping 'signals_mapping' '[{"column":"source_uuid", "Properties":{"Ordinal":"0"}},{"column":"name", "Properties":{"Ordinal":"1"}},{"column":"unit", "Properties":{"Ordinal":"2"}},{"column":"timestamp", "Properties":{"Ordinal":"3"}},{"column":"value", "Properties":{"Ordinal":"4"}},{"column":"value_string", "Properties":{"Ordinal":"5"}},{"column":"source", "Properties":{"Ordinal":"6"}},{"column":"source_type", "Properties":{"Ordinal":"7"}},{"column":"bus_type", "Properties":{"Ordinal":"8"}}]'
+
 .create table ['signals_metadata'] ingestion json mapping 'signals_metadata_demo_mapping' '[{"column":"name", "Properties":{"Path":"$[\'name\']"}},{"column":"source_uuid", "Properties":{"Path":"$[\'source_uuid\']"}},{"column":"preparation_startDate", "Properties":{"Path":"$[\'preparation_startDate\']"}},{"column":"signals", "Properties":{"Path":"$[\'signals\']"}},{"column":"comments", "Properties":{"Path":"$[\'comments\']"}},{"column":"numberOfChunks", "Properties":{"Path":"$[\'numberOfChunks\']"}}]'
+

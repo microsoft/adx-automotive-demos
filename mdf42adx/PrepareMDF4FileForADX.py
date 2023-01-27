@@ -122,7 +122,7 @@ def writeCsv(basename, mdf, uuid, target):
             with gzip.open(os.path.join(target, f"{basename}-{uuid}-{counter}.csv.gz"), 'wt') as csvFile:
 
                 writer = csv.writer(csvFile)
-                writer.writerow(["source_uuid", "name", "unit", "timestamp", "value", "value_string", "source", "source_type", "bus_type", "timeDifference"])
+                writer.writerow(["source_uuid", "name", "unit", "timestamp", "value", "value_string", "source", "source_type", "bus_type"])
 
                 try:
                     numericSignals = signals.samples.astype(np.double)

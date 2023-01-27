@@ -1,6 +1,6 @@
 # Using Azure Data Explorer to analyze MDF files
 
-This demo project illustrates the usage of Azure Data Explorer to ingest and analyze MDF-4 Data.
+This demo project illustrates the usage of Azure Data Explorer to ingest and analyze MDF Data.
 
 The [ASAM MDF-4 standard](https://www.asam.net/standards/detail/mdf/wiki/) has wide adoption in the automotive industry to store measurement and calibration data. The [asammdf python library](https://pypi.org/project/asammdf/) provides structured access to the MDF-4 data.
 
@@ -10,11 +10,22 @@ The project folder contains an ingestion preparation script, a sample data struc
 
 * Create a [free Azure Data Explorer Cluster](https://learn.microsoft.com/azure/data-explorer/start-for-free-web-ui) and create a database.
 * Execute the deployment.kql scripts to create tables and script.
-* Prepare a development environment to run the MDF preparation script.
-* Process some MDF-4 files.
-* Ingest the files in ADX using the [ingest data wizard](https://learn.microsoft.com/azure/data-explorer/ingest-data-wizard) option in ADX.
-* Run the prepared queries to get familiar with the data.
-* Import the dashboard to see visualizations in ADX.
+* Prepare a development environment to run the MDF preparation scripts.
+    * (Optional) Generate an MDF-4 file
+    * Process some MDF-4 files.
+* Ingest the files in ADX using the [ingest data wizard](https://learn.microsoft.com/azure/data-explorer/ingest-data-wizard) functionality.
+* Run queries on the data.
+
+
+
+### Create a sample MDF file
+
+If you have no MDF files at hand, use the CreateSampleMDF.py script to generate a basic MDF4 file that contains simulated values
+for Engine RPM, Vehicle Speed and Engine Power.
+
+``` bash
+python CreateSampleMDF.py --file samplefile.mdf
+```
 
 ### Ingestion Preparation Script
 
@@ -27,7 +38,12 @@ The PrepareMDF4FileForADX will take a MDF-4 file as argument and create parquet 
 python PrepareMDF4FileForADX.py --help
 ```
 
-The script will create several files
-- A set of parquet or CSV files
-- A JSON metadata file containing the information about the MDF-4 file.
+As an example, you can use
 
+``` bash
+python PrepareMDF4FileForADX.py --file <myfile>.mf4 --target ~/<mydestinationdir> --format parquet
+```
+
+The script will create several files
+- A set of parquet or CSV files, organized by signals.
+- A JSON metadata file containing the information about the MDF-4 file.

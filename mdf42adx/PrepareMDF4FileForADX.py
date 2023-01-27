@@ -92,8 +92,7 @@ def writeParquet(basename, mdf, uuid, target):
                 }
             ) 
             
-            # Write using the signals as partition. By default it writes the files with multiple cores
-            pq.write_to_dataset(table, root_path=targetdir, partition_cols=["name"])
+            pq.write_to_dataset(table, root_path=targetdir)
 
             del table
 

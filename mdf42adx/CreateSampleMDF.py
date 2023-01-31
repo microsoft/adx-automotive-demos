@@ -44,6 +44,19 @@ def processFile(filename):
     engine_power = vehicle_RPM * vehicle_speed / 1000 + np.random.normal(0, 50, size=numberOfValues)
     signals.append(asammdf.Signal(name="EnginePower", samples=engine_power, timestamps=time, unit="kW", source=source))
 
+    # Generate gear signal
+    gear = np.zeros(numberOfValues)
+    for i in range(numberOfValues):
+        if vehicle_speed[i] < 20:
+            gear[i] = 1
+        elif vehicle_speed[i] < 40:
+            gear[i] = 2
+        elif vehicle_speed[i] < 60:
+            gear[i] = 3
+        else:
+            gear[i] = 4
+    signals.append(asammdf.Signal(name="Gear", samples=gear, timestamps=time, unit="-", source=source))
+
 
     mdf.append(signals, common_timebase=True)
 

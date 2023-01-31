@@ -1,0 +1,83 @@
+
+// --------------------------------------------------------
+// Basic Queries
+// --------------------------------------------------------
+
+// Show the files that we imported
+signals_metadata
+
+// Number of rows in the table
+signals
+| count
+
+// A sample 100 records
+signals
+| take 100
+
+// How many entries are there per recording
+signals_metadata
+| lookup (
+    signals
+    | summarize count() by source_uuid
+  ) on source_uuid
+| project source_uuid, name, count_
+
+
+// How many entries of each signal name on each file
+signals
+| summarize count() by source_uuid, name
+| lookup (signals_metadata | project source_uuid, filename=name) on source_uuid
+
+
+/ --------------------------------------------------------
+// Intermediate Queries
+// --------------------------------------------------------
+
+// Stat functions contain a lot of the required functionality, for example:
+
+// Find overall recording time statistics
+TimeStatistics
+
+// Find the averages for a few signals
+RecordingStatistics_Averages(
+        datatable(selectedSignals:string)["Speed", "EngineRPM", "EnginePower"]
+    )
+
+// Find the absolutes for a few signals
+RecordingStatistics_Max (
+    datatable(signals:string)["Speed", "EngineRPM", "EnginePower"]
+)
+
+
+// We can also use parameterized functions data to find files. This are functions that contain common functionality that can be reused
+
+// We look for vehicles that have a time above 2000 RPM
+TimeAbove("EngineRPM", 2000)
+
+// Now we look for vehicles that hav a time above 80 km/h
+TimeAbove("Speed", 80)
+
+// Find the recording where revolutions per minute was over 10s
+TimeAbove("EngineRPM)", 1000)
+| where timeOver > 10s
+| lookup signals_metadata on source_uuid
+| evaluate narrow() // for ease of reading
+
+
+// --------------------------------------------------------
+// Some more Queries
+// --------------------------------------------------------
+
+// Downsampling values and showing a line graph with multiple values
+let selected_source_uuid = toscalar(signals_metadata | take 1 | project source_uuid); // Lets take one file
+let resolution = 0.5; // and set the resolution 
+signals
+| where source_uuid == selected_source_uuid
+| where name in (
+    "Speed",
+    "EngineRPM",
+    "EnginePower"    
+    )
+| make-series value=avg(value) on timestamp step resolution by name
+| render linechart with (ysplit=panels, xcolumn=timestamp)
+

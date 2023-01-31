@@ -14,5 +14,38 @@
 
 .create table ['signals'] ingestion csv mapping 'signals_mapping' '[{"column":"source_uuid", "Properties":{"Ordinal":"0"}},{"column":"name", "Properties":{"Ordinal":"1"}},{"column":"unit", "Properties":{"Ordinal":"2"}},{"column":"timestamp", "Properties":{"Ordinal":"3"}},{"column":"value", "Properties":{"Ordinal":"4"}},{"column":"value_string", "Properties":{"Ordinal":"5"}},{"column":"source", "Properties":{"Ordinal":"6"}},{"column":"source_type", "Properties":{"Ordinal":"7"}},{"column":"bus_type", "Properties":{"Ordinal":"8"}}]'
 
-.create table ['signals_metadata'] ingestion json mapping 'signals_metadata_demo_mapping' '[{"column":"name", "Properties":{"Path":"$[\'name\']"}},{"column":"source_uuid", "Properties":{"Path":"$[\'source_uuid\']"}},{"column":"preparation_startDate", "Properties":{"Path":"$[\'preparation_startDate\']"}},{"column":"signals", "Properties":{"Path":"$[\'signals\']"}},{"column":"comments", "Properties":{"Path":"$[\'comments\']"}},{"column":"numberOfChunks", "Properties":{"Path":"$[\'numberOfChunks\']"}}]'
+.create table ['signals_metadata'] ingestion json mapping 'signals_metadata_mapping' '[{"column":"name", "Properties":{"Path":"$[\'name\']"}},{"column":"source_uuid", "Properties":{"Path":"$[\'source_uuid\']"}},{"column":"preparation_startDate", "Properties":{"Path":"$[\'preparation_startDate\']"}},{"column":"signals", "Properties":{"Path":"$[\'signals\']"}},{"column":"comments", "Properties":{"Path":"$[\'comments\']"}},{"column":"numberOfChunks", "Properties":{"Path":"$[\'numberOfChunks\']"}}]'
 
+//-------------------------------
+// Create functions
+//-------------------------------
+
+.create-or-alter function with (folder = "Stats") TimeStatistics() {
+// Calculate the duration of all recordings
+signals
+ | summarize Start=min(timestamp), End=max(timestamp)  by source_uuid
+ | extend duration = (End - Start) * 1s
+}
+
+.create-or-alter function with (folder = "Stats") RecordingStatistics_Averages(T:(*)) {
+// Finds the average value and does a pivot on the result
+    signals
+    | where name in (T)
+    | evaluate pivot(name, avg(value), source_uuid)
+}
+
+.create-or-alter function with (folder = "Stats") RecordingStatistics_Max(T:(*)) {
+// Calculate the max absolute value and pivot
+    signals
+    | where name in (T)
+    | evaluate pivot(name, max(abs(value)), source_uuid)
+}
+
+.create-or-alter function with (folder = "Stats") TimeAbove(name:string,valueLimit:real) {
+// calculate how long a signal is above a limit in all recordings
+    signals
+    | sort by source_uuid, timestamp asc
+    | extend timeDifference = timestamp - prev(timestamp)
+    | where value > valueLimit
+    | summarize timeOver = sum(timeDifference)*1s by source_uuid
+}

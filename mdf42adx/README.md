@@ -9,14 +9,22 @@ The project folder contains an ingestion preparation script, a sample data struc
 ## Step Overview
 
 * Create a [free Azure Data Explorer Cluster](https://learn.microsoft.com/azure/data-explorer/start-for-free-web-ui) and create a database.
-* Execute the deployment.kql scripts to create tables and script.
+* Execute the deployment scripts to create tables and script.
 * Prepare a development environment to run the MDF preparation scripts.
-    * (Optional) Generate an MDF-4 file
-    * Process some MDF-4 files.
+    * (Optional) Generate an MDF-4 file.
+    * Process MDF files for ingestion.
 * Ingest the files in ADX using the [ingest data wizard](https://learn.microsoft.com/azure/data-explorer/ingest-data-wizard) functionality.
 * Run queries on the data.
 
+### Execute the deployment script
 
+The deployment script is stored in deployment.kql. Load the file in Azure Data Explorer using the "File/Open" function and execute all commands.
+
+The script creates two tables, *signals* and *signals_metadata*.
+- The *signals* table stores all values contained in the MDF file
+- The *signals_metadata* table stores information about the files, such as included signals and group names.
+
+The script also creates mapping for ingestion.
 
 ### Create a sample MDF file
 
@@ -27,7 +35,7 @@ for Engine RPM, Vehicle Speed and Engine Power.
 python CreateSampleMDF.py --file samplefile.mdf
 ```
 
-### Ingestion Preparation Script
+### Process MDF Files for ingestion
 
 The PrepareMDF4FileForADX will take a MDF-4 file as argument and create parquet files that can be directly ingested into ADX.
 
@@ -38,12 +46,25 @@ The PrepareMDF4FileForADX will take a MDF-4 file as argument and create parquet 
 python PrepareMDF4FileForADX.py --help
 ```
 
-As an example, you can use
+Using the sample file, the command looks like this:
 
 ``` bash
-python PrepareMDF4FileForADX.py --file <myfile>.mf4 --target ~/<mydestinationdir> --format parquet
+python PrepareMDF4FileForADX.py --file samplefile.mf4 --target ~/<mydestinationdir> --format parquet
 ```
 
 The script will create several files
 - A set of parquet or CSV files, organized by signals.
 - A JSON metadata file containing the information about the MDF-4 file.
+
+### Ingest files into ADX
+
+Use the [ingest data wizard](https://learn.microsoft.com/azure/data-explorer/ingest-data-wizard) functionality to ingest the processed files. The ingestion has two steps:
+- Ingest the parquet / csv files into the *signals* table.
+- Ingest the JSON file into the *signals_metadata* table.
+
+When ingesting, use the pre-created mappings.
+
+### Run demo queries
+Open the demo.kql file in Azure Data Explorer using *File/Open". Follow the instructions to execute some sample queries and visualization on the MDF data.
+
+Some sample queries assume specific signal names - you can adjust the queries to use your own data.

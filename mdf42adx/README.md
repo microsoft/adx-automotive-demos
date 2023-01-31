@@ -65,6 +65,6 @@ Use the [ingest data wizard](https://learn.microsoft.com/azure/data-explorer/ing
 When ingesting, use the pre-created mappings.
 
 ### Run demo queries
-Open the demo.kql file in Azure Data Explorer using *File/Open". Follow the instructions to execute some sample queries and visualization on the MDF data.
+Open the demo.kql file in Azure Data Explorer using *File/Open*. Follow the instructions to execute some sample queries and visualization on the MDF data.
 
 Some sample queries assume specific signal names - you can adjust the queries to use your own data.

@@ -59,22 +59,20 @@ def writeMetadata(basename, mdf, uuid, target, numberOfChunks):
        
     metadataFile.close()
 
-# Create a parquet file for the MDF
 def writeParquet(basename, mdf, uuid, target):       
-    
+    '''
+        Writes the MDF-4 file to a parquet file
+    '''
+
     targetdir = os.path.join(target, f"{basename}-{uuid}")
         
     # Iterate over the signals contained in the MDF-4 file
     for counter, signal in enumerate(mdf.iter_channels(copy_master=False)):                  
         
         start_signal_time = time.time()
+        print(f"Processing signal {counter}: {signal.name} with type {signal.samples.dtype}")   
 
-        try:
-            numericSignals = signal.samples.astype(np.double)
-            stringSignals = np.empty(len(signal.timestamps), dtype=str)            
-        except:
-            numericSignals = np.full(len(signal.timestamps), dtype=np.double, fill_value=0)            
-            stringSignals = signal.samples.astype(str)               
+        numericSignals, stringSignals = extractSignalsByType(signal)
 
         # Creates a table with the structure that we will import into ADX
         try:
@@ -104,63 +102,76 @@ def writeParquet(basename, mdf, uuid, target):
     
     return counter
 
-# Writes a gzipped CSV file using the uuid as name
-# It will write a file for each individual signal
+
+def extractSignalsByType(signal):
+    '''
+        Extracts the signals from the MDF-4 file and converts them to a numeric or string representation
+        Takes into consideration numbers, strings and records (rendered as a string) 
+    '''   
+
+    if np.issubdtype(signal.samples.dtype, np.record):
+        numericSignals = np.full(len(signal.timestamps), dtype=np.double, fill_value=0)      
+        stringSignals = [record.pprint() for record in signal.samples]
+
+    elif np.issubdtype(signal.samples.dtype, np.number):
+        numericSignals = signal.samples.astype(np.double)
+        stringSignals = np.empty(len(signal.timestamps), dtype=str) 
+
+    else:
+        numericSignals = np.full(len(signal.timestamps), dtype=np.double, fill_value=0)            
+        stringSignals = signal.samples.astype(str)
+    return numericSignals,stringSignals
+
+
 def writeCsv(basename, mdf, uuid, target):
+    '''    
+        Writes a gzipped CSV file using the uuid as name
+        It will write a file for each individual signal
+    '''
 
-        # Start time of the recording
-        recordingStartTime = mdf.header.start_time
+    # Iterate over the signals contained in the MDF-4 file
+    for counter, signal in enumerate(mdf.iter_channels(copy_master=False)):                     
 
-        # Initial counter
-        counter = 0
+        start_signal_time = time.time()
+        print(f"Processing signal {counter}: {signal.name} with type {signal.samples.dtype}")   
 
-        # Iterate over the signals
-        for signals in mdf.iter_channels():            
-           
-            # open the file in the write mode
-            with gzip.open(os.path.join(target, f"{basename}-{uuid}-{counter}.csv.gz"), 'wt') as csvFile:
+        numericSignals, stringSignals = extractSignalsByType(signal)
 
-                writer = csv.writer(csvFile)
-                writer.writerow(["source_uuid", "name", "unit", "timestamp", "value", "value_string", "source", "source_type", "bus_type"])
+        # open the file in the write mode
+        with gzip.open(os.path.join(target, f"{basename}-{uuid}-{counter}.csv.gz"), 'wt') as csvFile:
+
+            writer = csv.writer(csvFile)
+            writer.writerow(["source_uuid", "name", "unit", "timestamp", "value", "value_string", "source", "source_type", "bus_type"])                
+                            
+            # Iterate on the entries for the signal
+
+            for indx in range(0, len(signal.timestamps)):
 
                 try:
-                    numericSignals = signals.samples.astype(np.double)
-                    stringSignals = np.empty(len(signals.timestamps), dtype=str)
+                    numericValue = float(signal.samples[indx])
                 except:
-                    numericSignals = np.full(len(signals.timestamps), dtype=np.double, fill_value=0)
-                    stringSignals = signals.samples.astype(str)
-                
-                print(f"Signal {counter}: {signals.name} to file {csvFile.name}")
+                    numericValue = "",
 
+                writer.writerow(
+                    [
+                        str(uuid),
+                        signal.name, 
+                        signal.unit, 
+                        signal.timestamps[indx],
+                        numericSignals[indx],
+                        stringSignals[indx],
+                        signal.source.name,
+                        v4c.SOURCE_TYPE_TO_STRING[signal.source.source_type],
+                        v4c.BUS_TYPE_TO_STRING[signal.source.bus_type],
+                    ]
+                )
 
-                # Iterate on the entries for the signal
+        csvFile.close()
 
-                for indx in range(0, len(signals.timestamps)):
-
-                    try:
-                        numericValue = float(signals.samples[indx])
-                    except:
-                        numericValue = "",
-
-                    writer.writerow(
-                        [
-                            str(uuid),
-                            signals.name, 
-                            signals.unit, 
-                            signals.timestamps[indx],
-                            numericSignals[indx],
-                            stringSignals[indx],
-                            signals.source.name,
-                            v4c.SOURCE_TYPE_TO_STRING[signals.source.source_type],
-                            v4c.BUS_TYPE_TO_STRING[signals.source.bus_type],
-                        ]
-                    )
-
-            csvFile.close()
-
-            counter +=  1
-            
-        return counter
+        end_signal_time = time.time() - start_signal_time
+        print(f"Signal {counter}: {signal.name} with {len(signal.timestamps)} entries took {end_signal_time}")
+        
+    return counter
 
 def processFile(filename):
     '''Processes a single MDF file.'''
@@ -171,7 +182,6 @@ def processFile(filename):
     # If the argument is dump, show the signals
     if (args.dump):
         dumpSignals(mdf)
-
     # Otherwise export
     else:        
         basename = Path(filename).stem
@@ -194,7 +204,6 @@ def processFile(filename):
 
 def processDirectory(directoryname):
     '''Processes a complete directoy containing several MDF-4 files.'''
-
     for path in os.listdir(directoryname):
         if os.path.isfile(os.path.join(directoryname, path)):
             processFile(os.path.join(directoryname, path))

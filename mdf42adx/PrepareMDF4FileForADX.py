@@ -11,6 +11,7 @@ import os
 import pandas as pd
 from   pathlib import Path
 import time 
+import multiprocessing as mp
 import numpy as np
 import uuid
 import pyarrow as pa
@@ -22,6 +23,8 @@ def dumpSignals(mdf):
 
     for counter, signal in enumerate(mdf.iter_channels()):
         print(f"{signal.group_index}, {signal.channel_index}, {mdf.groups[signal.group_index].channel_group.acq_name}, {signal.source.name}, {signal.name}, {signal.unit}, {len(signal.timestamps)}, {v4c.SOURCE_TYPE_TO_STRING[signal.source.source_type]}, {v4c.BUS_TYPE_TO_STRING[signal.source.bus_type]}")
+
+    return counter
 
 def writeMetadata(basename, mdf, uuid, target, numberOfChunks):
     '''Creates a JSON metadata file containing the signals description for the MDF-4 file'''
@@ -65,43 +68,51 @@ def writeParquet(basename, mdf, uuid, target):
     '''
 
     targetdir = os.path.join(target, f"{basename}-{uuid}")
+
+    # Create a pool of worker processes
+    pool = mp.Pool(mp.cpu_count())
         
     # Iterate over the signals contained in the MDF-4 file
     for counter, signal in enumerate(mdf.iter_channels(copy_master=False)):                  
-        
-        start_signal_time = time.time()
-        print(f"Processing signal {counter}: {signal.name} with type {signal.samples.dtype}")   
-
-        numericSignals, stringSignals = extractSignalsByType(signal)
-
-        # Creates a table with the structure that we will import into ADX
-        try:
-            table = pa.table (
-                {                   
-                    "source_uuid": np.full(len(signal.timestamps), str(uuid), dtype=object),
-                    "name": np.full(len(signal.timestamps), signal.name, dtype=object),
-                    "unit": np.full(len(signal.timestamps), signal.unit, dtype=object),
-                    "timestamp": signal.timestamps,
-                    "value": numericSignals,
-                    "value_string": stringSignals,
-                    "source": np.full(len(signal.timestamps), signal.source.name, dtype=object),
-                    "source_type": np.full(len(signal.timestamps), v4c.SOURCE_TYPE_TO_STRING[signal.source.source_type], dtype=object),
-                    "bus_type": np.full(len(signal.timestamps), v4c.BUS_TYPE_TO_STRING[signal.source.bus_type], dtype=object)
-                }
-            ) 
-            
-            pq.write_to_dataset(table, root_path=targetdir)
-
-            del table
-
-        except Exception as e:
-            print(f"Signal {counter}: {signal.name} with {len(signal.timestamps)} failed: {e}")    
-
-        end_signal_time = time.time() - start_signal_time
-        print(f"Signal {counter}: {signal.name} with {len(signal.timestamps)} entries took {end_signal_time}")
-    
+                       
+        # Apply the processSignal function to each signal asynchronously
+        #processSignal(counter, signal, uuid, targetdir)
+        pool.apply_async(processSignal, args=(counter, signal, uuid, targetdir))
+   
     return counter
 
+def processSignal(counter, signal, uuid, targetdir):
+    '''
+        Creates a table with the structure that we will import into ADX
+    '''
+    start_signal_time = time.time()
+    print(f"Processing signal {counter}: {signal.name} with type {signal.samples.dtype}")   
+
+    try:
+        numericSignals, stringSignals = extractSignalsByType(signal)
+        
+        table = pa.table (
+            {                   
+                "source_uuid": np.full(len(signal.timestamps), str(uuid), dtype=object),
+                "name": np.full(len(signal.timestamps), signal.name, dtype=object),
+                "unit": np.full(len(signal.timestamps), signal.unit, dtype=object),
+                "timestamp": signal.timestamps,
+                "value": numericSignals,
+                "value_string": stringSignals,
+                "source": np.full(len(signal.timestamps), signal.source.name, dtype=object),
+                "source_type": np.full(len(signal.timestamps), v4c.SOURCE_TYPE_TO_STRING[signal.source.source_type], dtype=object),
+                "bus_type": np.full(len(signal.timestamps), v4c.BUS_TYPE_TO_STRING[signal.source.bus_type], dtype=object)
+            }
+        ) 
+        pq.write_to_dataset(table, root_path=targetdir)
+
+        del table
+        
+    except Exception as e:
+        print(f"Signal {counter}: {signal.name} with {len(signal.timestamps)} failed: {e}")    
+
+    end_signal_time = time.time() - start_signal_time
+    print(f"Signal {counter}: {signal.name} with {len(signal.timestamps)} entries took {end_signal_time}")
 
 def extractSignalsByType(signal):
     '''
@@ -122,66 +133,73 @@ def extractSignalsByType(signal):
         stringSignals = signal.samples.astype(str)
     return numericSignals,stringSignals
 
-
 def writeCsv(basename, mdf, uuid, target):
     '''    
         Writes a gzipped CSV file using the uuid as name
         It will write a file for each individual signal
     '''
 
+    targetdir = os.path.join(target, f"{basename}-{uuid}")
+
     # Iterate over the signals contained in the MDF-4 file
     for counter, signal in enumerate(mdf.iter_channels(copy_master=False)):                     
-
-        start_signal_time = time.time()
-        print(f"Processing signal {counter}: {signal.name} with type {signal.samples.dtype}")   
-
-        numericSignals, stringSignals = extractSignalsByType(signal)
-
-        # open the file in the write mode
-        with gzip.open(os.path.join(target, f"{basename}-{uuid}-{counter}.csv.gz"), 'wt') as csvFile:
-
-            writer = csv.writer(csvFile)
-            writer.writerow(["source_uuid", "name", "unit", "timestamp", "value", "value_string", "source", "source_type", "bus_type"])                
-                            
-            # Iterate on the entries for the signal
-
-            for indx in range(0, len(signal.timestamps)):
-
-                try:
-                    numericValue = float(signal.samples[indx])
-                except:
-                    numericValue = "",
-
-                writer.writerow(
-                    [
-                        str(uuid),
-                        signal.name, 
-                        signal.unit, 
-                        signal.timestamps[indx],
-                        numericSignals[indx],
-                        stringSignals[indx],
-                        signal.source.name,
-                        v4c.SOURCE_TYPE_TO_STRING[signal.source.source_type],
-                        v4c.BUS_TYPE_TO_STRING[signal.source.bus_type],
-                    ]
-                )
-
-        csvFile.close()
-
-        end_signal_time = time.time() - start_signal_time
-        print(f"Signal {counter}: {signal.name} with {len(signal.timestamps)} entries took {end_signal_time}")
+        # Apply the processSignal function to each signal asynchronously
+        processSignalCSV(counter, signal, uuid, targetdir, basename)
         
     return counter
+
+def processSignalCSV(counter, signal, uuid, targetdir, basename):
+    start_signal_time = time.time()
+    print(f"Processing signal {counter}: {signal.name} with type {signal.samples.dtype}")   
+    numericSignals, stringSignals = extractSignalsByType(signal)
+
+    os.makedirs(targetdir, exist_ok=True)
+
+    # open the file in the write mode
+    with gzip.open(os.path.join(targetdir, f"{uuid}-{counter}.csv.gz"), 'wt') as csvFile:
+
+        writer = csv.writer(csvFile)
+        writer.writerow(["source_uuid", "name", "unit", "timestamp", "value", "value_string", "source", "source_type", "bus_type"])                
+                        
+        # Iterate on the entries for the signal
+
+        for indx in range(0, len(signal.timestamps)):
+
+            try:
+                numericValue = float(signal.samples[indx])
+            except:
+                numericValue = "",
+
+            writer.writerow(
+                [
+                    str(uuid),
+                    signal.name, 
+                    signal.unit, 
+                    signal.timestamps[indx],
+                    numericSignals[indx],
+                    stringSignals[indx],
+                    signal.source.name,
+                    v4c.SOURCE_TYPE_TO_STRING[signal.source.source_type],
+                    v4c.BUS_TYPE_TO_STRING[signal.source.bus_type],
+                ]
+            )
+
+    csvFile.close()
+    
+    end_signal_time = time.time() - start_signal_time
+    print(f"Signal {counter}: {signal.name} with {len(signal.timestamps)} entries took {end_signal_time}")
 
 def processFile(filename):
     '''Processes a single MDF file.'''
 
     start_time = time.time()
     mdf = MDF(filename)
+    numberOfChunks = 0
 
     # If the argument is dump, show the signals
     if (args.dump):
-        dumpSignals(mdf)
+       numberOfChunks = dumpSignals(mdf)
+        
     # Otherwise export
     else:        
         basename = Path(filename).stem
@@ -200,7 +218,7 @@ def processFile(filename):
         writeMetadata(basename, mdf, file_uuid, args.target, numberOfChunks)
 
     end_time = time.time() - start_time
-    print (f"Processing {filename} took {end_time}")
+    print (f"Processing {filename} took {end_time} and has {numberOfChunks} signals")
 
 def processDirectory(directoryname):
     '''Processes a complete directoy containing several MDF-4 files.'''

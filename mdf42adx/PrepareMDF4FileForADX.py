@@ -19,10 +19,10 @@ import pyarrow.parquet as pq
 
 
 def dumpSignals(mdf):
-    '''Iterates over all signals and prints them to the console'''
+    '''Iterates over all signals and prints them to the console'''    
 
     for counter, signal in enumerate(mdf.iter_channels()):
-        print(f"{signal.group_index}, {signal.channel_index}, {mdf.groups[signal.group_index].channel_group.acq_name}, {signal.source.name}, {signal.name}, {signal.unit}, {len(signal.timestamps)}, {v4c.SOURCE_TYPE_TO_STRING[signal.source.source_type]}, {v4c.BUS_TYPE_TO_STRING[signal.source.bus_type]}")
+        print(f"{signal.source.name}, {mdf.groups[signal.group_index].channel_group.acq_source.path}, {signal.name}, {signal.unit}, {v4c.SOURCE_TYPE_TO_STRING[signal.source.source_type]}, {v4c.BUS_TYPE_TO_STRING[signal.source.bus_type]}, {signal.group_index}, {signal.channel_index}")
 
     return counter
 
@@ -51,7 +51,8 @@ def writeMetadata(basename, mdf, uuid, target, numberOfChunks):
                     "comment": signal.comment,
                     "group_index": signal.group_index,
                     "channel_index": signal.channel_index,
-                    "group_name": mdf.groups[signal.group_index].channel_group.acq_name,
+                    "path": mdf.groups[signal.group_index].channel_group.acq_source.path,
+                    "group_name": mdf.groups[signal.group_index].channel_group.acq_name,                    
                     "source" : signal.source.name,
                     "source_type": v4c.SOURCE_TYPE_TO_STRING[signal.source.source_type],
                     "bus_type": v4c.BUS_TYPE_TO_STRING[signal.source.bus_type],
@@ -73,17 +74,26 @@ def writeParquet(basename, mdf, uuid, target):
     pool = mp.Pool(mp.cpu_count())
         
     # Iterate over the signals contained in the MDF-4 file
-    for counter, signal in enumerate(mdf.iter_channels(copy_master=False)):                  
-                       
+    for counter, signal in enumerate(mdf.iter_channels(copy_master=False)):                       
         # Apply the processSignal function to each signal asynchronously
-        #processSignal(counter, signal, uuid, targetdir)
-        pool.apply_async(processSignal, args=(counter, signal, uuid, targetdir))
+        path = mdf.groups[signal.group_index].channel_group.acq_source.path
+        #processSignal(counter, path, signal, uuid, targetdir)        
+        pool.apply_async(processSignal, args=(counter, path, signal, uuid, targetdir))
    
     return counter
 
-def processSignal(counter, signal, uuid, targetdir):
+def processSignal(counter, path, signal, uuid, targetdir):
     '''
-        Creates a table with the structure that we will import into ADX
+        Creates a parquet export with the structure that we will import into ADX.
+        There are three important pieces of information for time analysis of automotive signals
+            - The signal itself, which might be a record, numeric or string
+            - The frame, which might contain multiple signals
+            - The bus (some signals might be avaialble on multiple buses such as CAN and LIN)
+
+        Additional information that is relevant for analytis:
+            - The source ECU, as some analysis are related to specific Electronic Control Units.
+            - The type of BUS, as some analysis are specific to CAN, LIN or ETH.
+
     '''
     start_signal_time = time.time()
     print(f"Processing signal {counter}: {signal.name} with type {signal.samples.dtype}")   
@@ -100,6 +110,7 @@ def processSignal(counter, signal, uuid, targetdir):
                 "value": numericSignals,
                 "value_string": stringSignals,
                 "source": np.full(len(signal.timestamps), signal.source.name, dtype=object),
+                "path": np.full(len(signal.timestamps), path, dtype=object),
                 "source_type": np.full(len(signal.timestamps), v4c.SOURCE_TYPE_TO_STRING[signal.source.source_type], dtype=object),
                 "bus_type": np.full(len(signal.timestamps), v4c.BUS_TYPE_TO_STRING[signal.source.bus_type], dtype=object)
             }
@@ -144,11 +155,12 @@ def writeCsv(basename, mdf, uuid, target):
     # Iterate over the signals contained in the MDF-4 file
     for counter, signal in enumerate(mdf.iter_channels(copy_master=False)):                     
         # Apply the processSignal function to each signal asynchronously
-        processSignalCSV(counter, signal, uuid, targetdir, basename)
+        path = mdf.groups[signal.group_index].channel_group.acq_source.path
+        processSignalCSV(counter, path, signal, uuid, targetdir, basename)
         
     return counter
 
-def processSignalCSV(counter, signal, uuid, targetdir, basename):
+def processSignalCSV(counter, path, signal, uuid, targetdir, basename):
     start_signal_time = time.time()
     print(f"Processing signal {counter}: {signal.name} with type {signal.samples.dtype}")   
     numericSignals, stringSignals = extractSignalsByType(signal)
@@ -159,7 +171,7 @@ def processSignalCSV(counter, signal, uuid, targetdir, basename):
     with gzip.open(os.path.join(targetdir, f"{uuid}-{counter}.csv.gz"), 'wt') as csvFile:
 
         writer = csv.writer(csvFile)
-        writer.writerow(["source_uuid", "name", "unit", "timestamp", "value", "value_string", "source", "source_type", "bus_type"])                
+        writer.writerow(["source_uuid", "name", "unit", "timestamp", "value", "value_string", "source", "path", "source_type", "bus_type"])                
                         
         # Iterate on the entries for the signal
 
@@ -179,6 +191,7 @@ def processSignalCSV(counter, signal, uuid, targetdir, basename):
                     numericSignals[indx],
                     stringSignals[indx],
                     signal.source.name,
+                    path,
                     v4c.SOURCE_TYPE_TO_STRING[signal.source.source_type],
                     v4c.BUS_TYPE_TO_STRING[signal.source.bus_type],
                 ]

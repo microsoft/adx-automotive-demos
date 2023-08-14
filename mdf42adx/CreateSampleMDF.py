@@ -24,7 +24,7 @@ def processFile(filename):
 
     signals = []
 
-    source = Source(source_type=Source.SOURCE_TOOL, bus_type=Source.BUS_TYPE_NONE, name="EngineControlUnit", path="Powertrain", comment="Generated" )
+    source = Source(source_type=Source.SOURCE_TOOL, bus_type=Source.BUS_TYPE_NONE, name="EngineControlUnit", path="PT_CAN.Powertrain", comment="Generated" )
 
     # Generate vehicle RPM signal
     rpm_amplitude = 500

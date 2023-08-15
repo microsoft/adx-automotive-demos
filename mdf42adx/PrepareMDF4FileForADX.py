@@ -44,7 +44,7 @@ def writeMetadata(basename, mdf, uuid, target, numberOfChunks):
         }
 
 
-        for signal in mdf.iter_channels():
+        for signal in mdf.iter_channels(raw=True):
 
             channel_group_acq_name, acq_source_name, acq_source_path = getSource(mdf, signal)
 
@@ -119,6 +119,7 @@ def processSignal(counter, channel_group_acq_name, acq_source_name, acq_source_p
                 "name": np.full(len(signal.timestamps), signal.name, dtype=object),
                 "unit": np.full(len(signal.timestamps), signal.unit, dtype=object),
                 "timestamp": signal.timestamps,
+                "timestamp_diff": np.append(0, np.diff(signal.timestamps)),
                 "value": numericSignals,
                 "value_string": stringSignals,
                 "source": np.full(len(signal.timestamps), signal.source.name, dtype=object),

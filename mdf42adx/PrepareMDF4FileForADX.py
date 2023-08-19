@@ -14,11 +14,18 @@ import multiprocessing as mp
 from multiprocessing import get_context
 import uuid
 from DecodeParquet import processSignalAsParquet
+from DecodeCSV import processSignalAsCsv
 from DecodeUtils import getSource
 
 
 def dumpSignals(filename):
-    '''Iterates over all signals and prints them to the console'''
+    '''
+        Iterates over all signals and prints them to the console. Used for debugging purposes.
+
+        Args:
+            filename: the MDF-4 file to process
+    
+    '''
 
     mdf = MDF(filename)
 
@@ -33,7 +40,16 @@ def dumpSignals(filename):
 
 def writeMetadata(filename, basename, uuid, target):
     '''
-        Creates a JSON metadata file containing the signals description for the MDF-4 file
+        Creates an object containing the signals description for the MDF-4 file and writes it as a JSON file.
+        It returns an array with the signal description for further processing.        
+
+        Args:
+            filename: the MDF-4 file to process
+            basename: the base name of the metadata file
+            uuid: the UUID that identifies this decoding run
+            target: the target directory where to write the metadata file
+        Returns:
+            the number of signals in the file
     '''
 
     mdf = MDF(filename)
@@ -91,63 +107,68 @@ def log_error(error):
 def processSignals(filename, basename, uuid, target, signalsMetadata, blacklistedSignals, method):
     '''
         Writes the MDF-4 file to a parquet file.
-        Each signal will be written to a separate file in parallel
+        Each signal will be written to a separate file in parallel.
+        
+        Args:
+            filename: the MDF-4 file to process
+            basename: the base name of the metadata file
+            uuid: the UUID that identifies this decoding run
+            target: the target directory where to write the metadata file
+            signalsMetadata: the list of signals to process
+            blacklistedSignals: the list of signals to skip
+            method: the method to use to process the signals
     '''   
 
-    doParallel = True
     okSignals = []
     nokSignals = []
     timeoutSignals = []
     
     targetdir = os.path.join(target, f"{basename}-{uuid}")
     
-    if (doParallel):
-        try:
-            # Create a pool of worker processes with all available CPUs
-            pool = get_context("spawn").Pool(mp.cpu_count()-1)
+    try:
+        # Create a pool of worker processes with all available CPUs
+        pool = get_context("spawn").Pool(mp.cpu_count()-1)
 
-            # Iterate over the signals contained in the MDF-4 file
-            results = []
-            for counter, signalMetadata in enumerate(signalsMetadata):
-                # Apply the processSignal function to each signal asynchronously
-                result = pool.apply_async(
-                    method, 
-                    args=(counter, filename, signalMetadata, uuid, targetdir, blacklistedSignals),
-                    callback=log_result,
-                    error_callback=log_error
-                )
-                results.append(result)
+        # Iterate over the signals contained in the MDF-4 file
+        results = []
+        for counter, signalMetadata in enumerate(signalsMetadata):
+            # Apply the processSignal function to each signal asynchronously
+            result = pool.apply_async(
+                method, 
+                args=(counter, filename, signalMetadata, uuid, targetdir, blacklistedSignals),
+                callback=log_result,
+                error_callback=log_error
+            )
+            results.append(result)
 
-            # All tasks have been submitted, no more tasks will be added to this pool.
-            pool.close()
+        # All tasks have been submitted, no more tasks will be added to this pool.
+        pool.close()
 
-            # get the task result with a timeout defined as 3 minutes per signal.
-            # This is a blocking call, so we will check the results in the order in which the tasks are submitted
-            for counter, result in enumerate(results):
-                try:
-                    print(f"Waiting for value for {counter} - {signalsMetadata[counter]['name']}")
-                    value = result.get(timeout=60*3)                    
-                    okSignals.append( (signalsMetadata[counter], value))
-                except mp.TimeoutError as te:
-                    print(f"TimeoutError for {counter} - {signalsMetadata[counter]['name']}: {te}")
-                    timeoutSignals.append(signalsMetadata[counter])
-                    continue
-                except Exception as e:
-                    print(f"Exception for {counter} - {signalsMetadata[counter]['name']}: {e}")
-                    nokSignals.append(signalsMetadata[counter])
-                    continue
+        # get the task result with a timeout defined as 3 minutes per signal.
+        # This is a blocking call, so we will check the results in the order in which the tasks are submitted
+        for counter, result in enumerate(results):
+            try:
+                print(f"Waiting for value for {counter} - {signalsMetadata[counter]['name']}")
+                value = result.get(timeout=60*6) # Wait for the value for 6 minutes, if it is not ready, it will probably never be                    
+                okSignals.append( (signalsMetadata[counter], value))
+            except mp.TimeoutError as te:
+                print(f"TimeoutError for {counter} - {signalsMetadata[counter]['name']}: {te}")
+                timeoutSignals.append(signalsMetadata[counter])
+                continue
+            except Exception as e:
+                print(f"Exception for {counter} - {signalsMetadata[counter]['name']}: {e}")
+                nokSignals.append(signalsMetadata[counter])
+                continue
 
-        except Exception as e:
-            print(e)
-        finally:
-            print (f"Finished. Tasks total/ok/nok/timeout: {len(signalsMetadata)} / {len(okSignals)} / {len(nokSignals)} / {len(timeoutSignals)}")
-            print (f"NOK signals: {nokSignals}")
-            print (f"Timeout signals: {timeoutSignals}")
-            pool.terminate()
+    except Exception as e:
+        print(e)
+    finally:
+        print (f"Finished. Tasks total/finished/exceptions/timeout: {len(signalsMetadata)} / {len(okSignals)} / {len(nokSignals)} / {len(timeoutSignals)}")
+        print (f"Finished: {okSignals}")
+        print (f"Exceptions: {nokSignals}")
+        print (f"Timeout signals: {timeoutSignals}")
+        pool.terminate()
 
-    else:
-        for counter, signalMetadata in enumerate(signalsMetadata):     
-            method(counter, filename, signalMetadata, uuid, targetdir)
 
 def readBlacklistedSignals():
     return [
@@ -163,7 +184,7 @@ def processFile(filename):
     if (args.dump):
        numberOfSignals = dumpSignals(filename)
         
-    # Otherwise export
+    # Otherwise export to the desired format
     else:        
         basename = Path(filename).stem
         file_uuid = uuid.uuid4()          
@@ -175,7 +196,7 @@ def processFile(filename):
         # Use the right method based on the format
         if (args.exportFormat == "parquet"):         
             processSignals(filename, basename, file_uuid, args.target, signalsMetadata, readBlacklistedSignals(), processSignalAsParquet)
-        if (args.exportFormat == "csv"):         
+        elif (args.exportFormat == "csv"):         
             processSignals(filename, basename, file_uuid, args.target, signalsMetadata, readBlacklistedSignals(), processSignalAsCsv)
         else:
             print("Incorrect format selected, use argument --format with parquet or csv")                

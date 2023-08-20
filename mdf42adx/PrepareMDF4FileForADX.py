@@ -58,8 +58,6 @@ def writeMetadata(filename, basename, uuid, target):
         
         print(f"Writing metadata file {basename}-{uuid}")
 
-        signalNames = []
-
         metadata = {
             "name": basename,
             "source_uuid": str(uuid),
@@ -89,7 +87,7 @@ def writeMetadata(filename, basename, uuid, target):
             )
         metadataFile.write(json.dumps(metadata))
        
-    print(f"Finished writing metadata file {basename}-{uuid} with {len(metadata['signals'])}")
+    print(f"Finished writing metadata file {basename}-{uuid} with {len(metadata['signals'])} signals")
 
     mdf.close()
 
@@ -126,10 +124,14 @@ def processSignals(filename, basename, uuid, target, signalsMetadata, blackliste
     targetdir = os.path.join(target, f"{basename}-{uuid}")
     
     try:
-        # Create a pool of worker processes with all available CPUs
-        pool = get_context("spawn").Pool(mp.cpu_count()-1)
+        # Create a pool of worker processes with all available CPUs -1
+        # To avoid potential conflicts with the MDF library, we will restart the process for each signal (maxtasks per child=1)
+        # We also use the spawn context to avoid problems with fork()
+        pool = get_context("spawn").Pool(mp.cpu_count()-1, maxtasksperchild=1)
+        
 
-        # Iterate over the signals contained in the MDF-4 file
+        # Iterate over the signals contained in the MDF-4 file.
+        # We will apply the method given as an argument with the callback for both success and error.
         results = []
         for counter, signalMetadata in enumerate(signalsMetadata):
             # Apply the processSignal function to each signal asynchronously
@@ -163,6 +165,7 @@ def processSignals(filename, basename, uuid, target, signalsMetadata, blackliste
     except Exception as e:
         print(e)
     finally:
+        # We create a report that contains all signals.
         print (f"Finished. Tasks total/finished/exceptions/timeout: {len(signalsMetadata)} / {len(okSignals)} / {len(nokSignals)} / {len(timeoutSignals)}")
         print (f"Finished: {okSignals}")
         print (f"Exceptions: {nokSignals}")
@@ -171,6 +174,7 @@ def processSignals(filename, basename, uuid, target, signalsMetadata, blackliste
 
 
 def readBlacklistedSignals():
+    # Future implementation can use this method to return a list of blacklisted signals from a file.
     return [
     ]
 

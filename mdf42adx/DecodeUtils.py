@@ -22,21 +22,22 @@ def getSource(mdf, signal):
 
     return channel_group_acq_name, acq_source_name, acq_source_path
 
-def extractSignalsByType(signal):
+def extractSignalsByType(decodedSignal, rawSignal):
     '''
         Extracts the signals from the MDF-4 file and converts them to a numeric or string representation
         Takes into consideration numbers, strings and records (rendered as a string) 
     '''   
+    	
+    if np.issubdtype(decodedSignal.samples.dtype, np.record):
+        numericSignals = rawSignal.samples
+        stringSignals = [record.pprint() for record in decodedSignal.samples]
 
-    if np.issubdtype(signal.samples.dtype, np.record):
-        numericSignals = np.full(len(signal.timestamps), dtype=np.double, fill_value=0)      
-        stringSignals = [record.pprint() for record in signal.samples]
-
-    elif np.issubdtype(signal.samples.dtype, np.number):
-        numericSignals = signal.samples.astype(np.double)
-        stringSignals = np.empty(len(signal.timestamps), dtype=str) 
+    elif np.issubdtype(decodedSignal.samples.dtype, np.number):
+        numericSignals = decodedSignal.samples.astype(np.double)
+        stringSignals = np.empty(len(decodedSignal.timestamps), dtype=str) 
 
     else:
-        numericSignals = np.full(len(signal.timestamps), dtype=np.double, fill_value=0)            
-        stringSignals = signal.samples.astype(str)
+        numericSignals = rawSignal.samples
+        stringSignals = decodedSignal.samples.astype(str)
+
     return numericSignals,stringSignals

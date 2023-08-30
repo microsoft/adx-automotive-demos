@@ -34,14 +34,13 @@ def processSignalAsParquet(counter, filename, signalMetadata, uuid, targetdir, b
 
         # Open the MDF file and select a single signal
         mdf = MDF(filename)          
-        print(f"pid {os.getpid()}: MDF file open signal {counter}: {signalMetadata['name']} - {filename} opened group {group_index}, channel {channel_index})")
 
         # We select a specific signal, both decoded and raw
         decodedSignal = mdf.select(channels=[(None, group_index, channel_index)])[0]
         rawSignal = mdf.select(channels=[(None, group_index, channel_index)], raw=True)[0]
     
-        print(f"pid {os.getpid()}: Processing signal {counter}: {decodedSignal.name} group index {group_index} channel index {channel_index} with type {decodedSignal.samples.dtype}")   
-            
+        print(f"pid {os.getpid()}: Processing signal {counter}: {decodedSignal.name} group index {group_index} channel index {channel_index} with type {decodedSignal.samples.dtype}")             
+
         try:
             channel_group_acq_name, acq_source_name, acq_source_path = getSource(mdf, decodedSignal)    
             numericSignals, stringSignals = extractSignalsByType(decodedSignal, rawSignal)
@@ -66,6 +65,7 @@ def processSignalAsParquet(counter, filename, signalMetadata, uuid, targetdir, b
                     "bus_type": np.full(len(decodedSignal.timestamps), bus_type, dtype=object)
                 }
             ) 
+            
 
             pq.write_to_dataset(table, root_path=targetdir, use_threads=False, compression="snappy")                
             
@@ -80,7 +80,5 @@ def processSignalAsParquet(counter, filename, signalMetadata, uuid, targetdir, b
         return (f"pid {os.getpid()}", False, counter, f"Signal {counter}: {decodedSignal.name} with {len(decodedSignal.timestamps)} failed: {str(e)}")
     
     finally:
-        print(f"pid {os.getpid()}: Closed signal {counter}: {signalMetadata['name']} MDF file {filename} closed")
         mdf.close()
         del decodedSignal, rawSignal, mdf
-        print(f"pid {os.getpid()}: Finished task signal {counter}: {signalMetadata['name']}")

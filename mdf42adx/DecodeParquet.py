@@ -67,7 +67,11 @@ def processSignalAsParquet(counter, filename, signalMetadata, uuid, targetdir, b
             ) 
             
 
-            pq.write_to_dataset(table, root_path=targetdir, use_threads=False, compression="snappy")                
+            pq.write_to_dataset(
+                table, root_path=targetdir,
+                basename_template=f"{decodedSignal.name}-{counter}-{{i}}.parquet",
+                use_threads=True,
+                compression="snappy")                
             
         except Exception as e:
             return (f"pid {os.getpid()}", False, counter, f"Signal {counter}: {decodedSignal.name} with {len(decodedSignal.timestamps)} failed: {str(e)}")

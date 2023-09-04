@@ -116,8 +116,8 @@ def processSignals(filename, basename, uuid, target, signalsMetadata, blackliste
             method: the method to use to process the signals
     '''   
 
-    okSignals = []
-    nokSignals = []
+    finishedSignals = []
+    errorSignals = []
     timeoutSignals = []
     
     targetdir = os.path.join(target, f"{basename}-{uuid}")
@@ -147,29 +147,63 @@ def processSignals(filename, basename, uuid, target, signalsMetadata, blackliste
 
         # get the task result with a timeout defined as 3 minutes per signal.
         # This is a blocking call, so we will check the results in the order in which the tasks are submitted
-        for counter, result in enumerate(results):
+        for counter, result in enumerate(results):            
+
             try:
                 print(f"Waiting for value for {counter} - {signalsMetadata[counter]['name']}")
                 value = result.get(timeout=60*6) # Wait for the value for 6 minutes, if it is not ready, it will probably never be                    
-                okSignals.append( (signalsMetadata[counter], value))
+                finishedSignals.append(
+                    {
+                        "counter": counter,
+                        "name": signalsMetadata[counter]["name"],
+                        "value": value
+                    }
+                )
             except mp.TimeoutError as te:
                 print(f"TimeoutError for {counter} - {signalsMetadata[counter]['name']}: {te}")
-                timeoutSignals.append(signalsMetadata[counter])
+                timeoutSignals.append(
+                    {
+                        "counter": counter,
+                        "name": signalsMetadata[counter]["name"],
+                        "value": f"TimeoutError {te}"
+                    }                    
+                )
                 continue
             except Exception as e:
                 print(f"Exception for {counter} - {signalsMetadata[counter]['name']}: {e}")
-                nokSignals.append(signalsMetadata[counter])
+                errorSignals.append(
+                    {
+                        "counter": counter,
+                        "name": signalsMetadata[counter]['name'],
+                        "value": f"Exception {e}"
+                    }               
+                ) 
                 continue
 
     except Exception as e:
-        print(e)
+        print(f"Critical error {e}")
     finally:
         # We create a report that contains all signals.
-        print (f"Finished. Tasks total/finished/exceptions/timeout: {len(signalsMetadata)} / {len(okSignals)} / {len(nokSignals)} / {len(timeoutSignals)}")
-        print (f"Finished: {okSignals}")
-        print (f"Exceptions: {nokSignals}")
+        print (f"Finished. Tasks total/finished/errors/timeout: {len(signalsMetadata)} / {len(finishedSignals)} / {len(errorSignals)} / {len(timeoutSignals)}")
+        print (f"Finished: {finishedSignals}")
+        print (f"Errors: {errorSignals}")
         print (f"Timeout signals: {timeoutSignals}")
+        createReport(basename, target, uuid, finishedSignals, errorSignals, timeoutSignals)
         pool.terminate()
+
+
+def createReport(basename, target, uuid, finishedSignals, errorSignals, timeoutSignals):
+    '''
+         Write a JSON file with the results
+    '''
+    with open(os.path.join(target, f"{basename}-{uuid}.report.json"), 'w') as reportFile:
+        report = {
+            "finished": finishedSignals,
+            "error": errorSignals,
+            "timeout": timeoutSignals
+        }
+        reportFile.write(json.dumps(report))
+    
 
 
 def readBlacklistedSignals():

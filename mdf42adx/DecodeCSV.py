@@ -1,5 +1,4 @@
 from asammdf import MDF
-from asammdf.blocks import v4_constants as v4c
 import csv
 import gzip
 import os
@@ -34,7 +33,7 @@ def processSignalAsCsv(counter, filename, signalMetadata, uuid, targetdir, black
     # open the file in the write mode
     with gzip.open(targetfile, 'wt') as csvFile:
 
-        channel_group_acq_name, acq_source_name, acq_source_path = getSource(mdf, decodedSignal)    
+        source_name, source_type, bus_type, channel_group_acq_name, acq_source_name, acq_source_path = getSource(mdf, decodedSignal)
         numericSignals, stringSignals = extractSignalsByType(decodedSignal, rawSignal)
 
         writer = csv.writer(csvFile)
@@ -52,12 +51,12 @@ def processSignalAsCsv(counter, filename, signalMetadata, uuid, targetdir, black
                     numericSignals[indx],
                     stringSignals[indx],
                     rawSignal[indx],
-                    decodedSignal.source.name,
+                    source_name,
                     channel_group_acq_name,
                     acq_source_name,
                     acq_source_path,                    
-                    v4c.SOURCE_TYPE_TO_STRING[decodedSignal.source.source_type],
-                    v4c.BUS_TYPE_TO_STRING[decodedSignal.source.bus_type],
+                    source_type,
+                    bus_type,
                 ]
             )
 

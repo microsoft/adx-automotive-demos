@@ -1,9 +1,19 @@
 import numpy as np
+from asammdf.blocks import v4_constants as v4c
 
-def getSource(mdf, signal):
+def getSource(mdf, signal):    
     '''
         Extracts the source information from the MDF-4 file for a given signal
     '''
+
+    if signal.source is not None:
+        source_name = signal.source.name
+        source_type = v4c.SOURCE_TYPE_TO_STRING[signal.source.source_type]
+        bus_type = v4c.BUS_TYPE_TO_STRING[signal.source.bus_type]
+    else:
+        source_name = "Unknown"
+        source_type = "Unknown"
+        bus_type = "Unknown"
 
     try: 
         channel_group_acq_name = mdf.groups[signal.group_index].channel_group.acq_name
@@ -20,7 +30,7 @@ def getSource(mdf, signal):
     except:
         acq_source_path = ""
 
-    return channel_group_acq_name, acq_source_name, acq_source_path
+    return source_name, source_type, bus_type, channel_group_acq_name, acq_source_name, acq_source_path
 
 def extractSignalsByType(decodedSignal, rawSignal):
     '''

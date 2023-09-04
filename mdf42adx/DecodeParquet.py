@@ -1,5 +1,4 @@
 from asammdf import MDF
-from asammdf.blocks import v4_constants as v4c
 from datetime import datetime, timedelta
 import time 
 import numpy as np
@@ -42,10 +41,8 @@ def processSignalAsParquet(counter, filename, signalMetadata, uuid, targetdir, b
         print(f"pid {os.getpid()}: Processing signal {counter}: {decodedSignal.name} group index {group_index} channel index {channel_index} with type {decodedSignal.samples.dtype}")             
 
         try:
-            channel_group_acq_name, acq_source_name, acq_source_path = getSource(mdf, decodedSignal)    
-            numericSignals, stringSignals = extractSignalsByType(decodedSignal, rawSignal)
-            source_type = v4c.SOURCE_TYPE_TO_STRING[decodedSignal.source.source_type]
-            bus_type = v4c.BUS_TYPE_TO_STRING[decodedSignal.source.bus_type]
+            source_name, source_type, bus_type, channel_group_acq_name, acq_source_name, acq_source_path = getSource(mdf, decodedSignal)
+            numericSignals, stringSignals = extractSignalsByType(decodedSignal, rawSignal)                       
 
             table = pa.table (
                 {                   
@@ -57,7 +54,7 @@ def processSignalAsParquet(counter, filename, signalMetadata, uuid, targetdir, b
                     "value": numericSignals,
                     "value_string": stringSignals,
                     "valueRaw" : rawSignal.samples,
-                    "source": np.full(len(decodedSignal.timestamps), decodedSignal.source.name, dtype=object),
+                    "source": np.full(len(decodedSignal.timestamps), source_name, dtype=object),
                     "channel_group_acq_name": np.full(len(decodedSignal.timestamps), channel_group_acq_name, dtype=object),
                     "acq_source_name": np.full(len(decodedSignal.timestamps), acq_source_name, dtype=object),
                     "acq_source_path": np.full(len(decodedSignal.timestamps), acq_source_path, dtype=object),

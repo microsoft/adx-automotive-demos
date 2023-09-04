@@ -26,12 +26,11 @@ def dumpSignals(filename):
             filename: the MDF-4 file to process
     
     '''
-
     mdf = MDF(filename)
 
-    for counter, signal in enumerate(mdf.iter_channels()):
-        channel_group_acq_name, acq_source_name, acq_source_path = getSource(mdf, signal)
-        print(f"{signal.source.name}, {channel_group_acq_name}, {acq_source_name}, {acq_source_path}, {signal.name}, {signal.unit}, {v4c.SOURCE_TYPE_TO_STRING[signal.source.source_type]}, {v4c.BUS_TYPE_TO_STRING[signal.source.bus_type]}, {signal.group_index}, {signal.channel_index}")
+    for counter, signal in enumerate(mdf.iter_channels()):        
+        source_name, source_type, bus_type, channel_group_acq_name, acq_source_name, acq_source_path = getSource(mdf, signal)
+        print(f"Gr_I: {signal.group_index}, CH_I: {signal.channel_index}, {signal.name}, unit: {signal.unit}, src: {source_name}, gr_name: {channel_group_acq_name}, {acq_source_name}, path: {acq_source_path}, type: {source_type}, bus: {bus_type}")
 
     mdf.close()
     del mdf
@@ -68,7 +67,7 @@ def writeMetadata(filename, basename, uuid, target):
 
         for signal in mdf.iter_channels():
 
-            channel_group_acq_name, acq_source_name, acq_source_path = getSource(mdf, signal)
+            source_name, source_type, bus_type, channel_group_acq_name, acq_source_name, acq_source_path = getSource(mdf, signal)
 
             metadata["signals"].append(
                 {
@@ -80,9 +79,9 @@ def writeMetadata(filename, basename, uuid, target):
                     "channel_group_acq_name": channel_group_acq_name,
                     "acq_source_name": acq_source_name,
                     "acq_source_path": acq_source_path,
-                    "source" : signal.source.name,
-                    "source_type": v4c.SOURCE_TYPE_TO_STRING[signal.source.source_type],
-                    "bus_type": v4c.BUS_TYPE_TO_STRING[signal.source.bus_type],
+                    "source" : source_name,
+                    "source_type": source_type,
+                    "bus_type": bus_type,
                 }          
             )
         metadataFile.write(json.dumps(metadata))

@@ -3,6 +3,7 @@ import csv
 import gzip
 import os
 import time 
+import re
 import multiprocessing as mp
 from DecodeUtils import getSource, extractSignalsByType
 
@@ -27,7 +28,10 @@ def processSignalAsCsv(counter, filename, signalMetadata, uuid, targetdir, black
     print(f"pid {os.getpid()}: Processing signal {counter}: {decodedSignal.name} group index {group_index} channel index {channel_index} with type {decodedSignal.samples.dtype}")   
 
 
-    targetfile = os.path.join(targetdir, f"{uuid}-{counter}.csv.gz")
+    # Escape all characters from the decodedSignal.name and use only alphanumeric and underscore for the basename
+    # This is to avoid issues with the basename_template and parquet
+    escaped_signal_name = re.sub(r"[^a-zA-Z0-9_]", "_", decodedSignal.name)
+    targetfile = os.path.join(targetdir, f"{escaped_signal_name}-{uuid}-{counter}.csv.gz")
     os.makedirs(os.path.dirname(targetfile), exist_ok=True)
 
     # open the file in the write mode

@@ -5,6 +5,7 @@ import numpy as np
 import pyarrow as pa
 import pyarrow.parquet as pq
 import os
+import re
 from DecodeUtils import getSource, extractSignalsByType
 
 def processSignalAsParquet(counter, filename, signalMetadata, uuid, targetdir, blacklistedSignals):
@@ -20,29 +21,35 @@ def processSignalAsParquet(counter, filename, signalMetadata, uuid, targetdir, b
             - The type of BUS, as some analysis are specific to CAN, LIN or ETH.
 
     '''
-    print(f"pid {os.getpid()}: Launched task signal {counter}: {signalMetadata['name']}")
-    start_signal_time = time.time()
+
+    # Get the signal group and channel index to load that specific signal ONLY
+    signal_name = signalMetadata["name"]
+    group_index = signalMetadata["group_index"]
+    channel_index = signalMetadata["channel_index"]
+    print(f"pid {os.getpid()}: Processing signal {counter}: {signal_name} group index {group_index} channel index {channel_index}") 
 
     try:        
-        if signalMetadata["name"] in blacklistedSignals:
+        # Open the MDF file and select a single signal
+        mdf = MDF(filename)     
+
+        start_signal_time = time.time()
+
+        if signal_name in blacklistedSignals:
             return (f"pid {os.getpid()}", False, counter, f">>> Skipped: {signalMetadata}")
 
-        # Get the signal group and channel index to load that specific signal ONLY
-        group_index = signalMetadata["group_index"]
-        channel_index = signalMetadata["channel_index"]
-
-        # Open the MDF file and select a single signal
-        mdf = MDF(filename)          
 
         # We select a specific signal, both decoded and raw
         decodedSignal = mdf.select(channels=[(None, group_index, channel_index)])[0]
         rawSignal = mdf.select(channels=[(None, group_index, channel_index)], raw=True)[0]
     
-        print(f"pid {os.getpid()}: Processing signal {counter}: {decodedSignal.name} group index {group_index} channel index {channel_index} with type {decodedSignal.samples.dtype}")             
 
         try:
             source_name, source_type, bus_type, channel_group_acq_name, acq_source_name, acq_source_path = getSource(mdf, decodedSignal)
             numericSignals, stringSignals = extractSignalsByType(decodedSignal, rawSignal)                       
+
+            if (len(decodedSignal.timestamps) == 0):
+                raise Exception("Skipped: No entries found")
+
 
             table = pa.table (
                 {                   
@@ -64,9 +71,14 @@ def processSignalAsParquet(counter, filename, signalMetadata, uuid, targetdir, b
             ) 
             
 
+            # Escape all characters from the decodedSignal.name and use only alphanumeric and underscore for the basename
+            # This is to avoid issues with the basename_template and parquet
+            parquetFileName = re.sub(r"[^a-zA-Z0-9_]", "_", decodedSignal.name)
+
             pq.write_to_dataset(
-                table, root_path=targetdir,
-                basename_template=f"{decodedSignal.name}-{counter}-{{i}}.parquet",
+                table, 
+                root_path=targetdir,
+                basename_template=f"{parquetFileName}-{counter}-{{i}}.parquet",
                 use_threads=True,
                 compression="snappy")                
             

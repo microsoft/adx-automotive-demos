@@ -184,7 +184,7 @@ def processSignals(filename, basename, uuid, target, signalsMetadata, blackliste
         print(f"Critical error {e}")
     finally:
         # We create a report that contains all signals.
-        print (f"Finished. Tasks total/finished/exceptions/timeout: {len(signalsMetadata)} / {len(finishedSignals)} / {len(errorSignals)} / {len(timeoutSignals)}")
+        print (f"Finished. Tasks total/finished/errors/timeout: {len(signalsMetadata)} / {len(finishedSignals)} / {len(errorSignals)} / {len(timeoutSignals)}")
         print (f"Finished: {finishedSignals}")
         print (f"Errors: {errorSignals}")
         print (f"Timeout signals: {timeoutSignals}")

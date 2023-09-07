@@ -50,6 +50,7 @@ def writeMetadata(filename, basename, uuid, target):
             "preparation_startDate": str(datetime.utcnow()),
             "signals": [],
             "signals_comment": [],
+            "signals_decoding": [],
             "comments": mdf.header.comment,
         }
 
@@ -74,6 +75,8 @@ def writeMetadata(filename, basename, uuid, target):
             )
 
             metadata["signals_comment"].append(signal.comment)
+            
+            metadata["signals_decoding"].append(str(signal.conversion))
 
         metadataFile.write(json.dumps(metadata))
        

@@ -1,11 +1,6 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
 import argparse
-from asammdf import MDF
-from asammdf.blocks import v4_constants as v4c
-import csv
-from datetime import datetime
-import gzip
 import json
 import os
 from   pathlib import Path
@@ -15,84 +10,7 @@ from multiprocessing import get_context
 import uuid
 from DecodeParquet import processSignalAsParquet
 from DecodeCSV import processSignalAsCsv
-from DecodeUtils import getSource
-
-
-def dumpSignals(filename):
-    '''
-        Iterates over all signals and prints them to the console. Used for debugging purposes.
-
-        Args:
-            filename: the MDF-4 file to process
-    
-    '''
-    mdf = MDF(filename)
-
-    for counter, signal in enumerate(mdf.iter_channels()):        
-        source_name, source_type, bus_type, channel_group_acq_name, acq_source_name, acq_source_path = getSource(mdf, signal)
-        print(f"Gr_I: {signal.group_index}, CH_I: {signal.channel_index}, {signal.name}, unit: {signal.unit}, src: {source_name}, gr_name: {channel_group_acq_name}, {acq_source_name}, path: {acq_source_path}, type: {source_type}, bus: {bus_type}")
-
-    mdf.close()
-    del mdf
-
-    return counter
-
-def writeMetadata(filename, basename, uuid, target):
-    '''
-        Creates an object containing the signals description for the MDF-4 file and writes it as a JSON file.
-        It returns an array with the signal description for further processing.        
-
-        Args:
-            filename: the MDF-4 file to process
-            basename: the base name of the metadata file
-            uuid: the UUID that identifies this decoding run
-            target: the target directory where to write the metadata file
-        Returns:
-            the number of signals in the file
-    '''
-
-    mdf = MDF(filename)
-
-    with open(os.path.join(target, f"{basename}-{uuid}.metadata.json"), 'w') as metadataFile:
-        
-        print(f"Writing metadata file {basename}-{uuid}")
-
-        metadata = {
-            "name": basename,
-            "source_uuid": str(uuid),
-            "preparation_startDate": str(datetime.utcnow()),
-            "signals": [],
-            "comments": mdf.header.comment,
-        }
-
-        for signal in mdf.iter_channels():
-
-            source_name, source_type, bus_type, channel_group_acq_name, acq_source_name, acq_source_path = getSource(mdf, signal)
-
-            metadata["signals"].append(
-                {
-                    "name": signal.name,
-                    "unit": signal.unit,
-                    "comment": signal.comment,
-                    "group_index": signal.group_index,
-                    "channel_index": signal.channel_index,
-                    "channel_group_acq_name": channel_group_acq_name,
-                    "acq_source_name": acq_source_name,
-                    "acq_source_path": acq_source_path,
-                    "source" : source_name,
-                    "source_type": source_type,
-                    "bus_type": bus_type,
-                }          
-            )
-        metadataFile.write(json.dumps(metadata))
-       
-    print(f"Finished writing metadata file {basename}-{uuid} with {len(metadata['signals'])} signals")
-
-    mdf.close()
-
-    del mdf
-
-    return metadata["signals"]
+from MetadataTools import writeMetadata, dumpSignals
 
 
 def log_result(result):
@@ -103,8 +21,8 @@ def log_error(error):
 
 def processSignals(filename, basename, uuid, target, signalsMetadata, blacklistedSignals, method):
     '''
-        Writes the MDF-4 file to a parquet file.
-        Each signal will be written to a separate file in parallel.
+        Writes the MDF-4 file to a file that can be used by ADX.
+        Each signal will be processed in parallel.
         
         Args:
             filename: the MDF-4 file to process
@@ -133,6 +51,7 @@ def processSignals(filename, basename, uuid, target, signalsMetadata, blackliste
         # We will apply the method given as an argument with the callback for both success and error.
         results = []
         for counter, signalMetadata in enumerate(signalsMetadata):
+
             # Apply the processSignal function to each signal asynchronously
             result = pool.apply_async(
                 method, 
@@ -204,8 +123,6 @@ def createReport(basename, target, uuid, finishedSignals, errorSignals, timeoutS
         }
         reportFile.write(json.dumps(report))
     
-
-
 def readBlacklistedSignals():
     # Future implementation can use this method to return a list of blacklisted signals from a file.
     return [

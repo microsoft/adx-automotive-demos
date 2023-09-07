@@ -1,3 +1,5 @@
+# Copyright (c) Microsoft Corporation.
+# Licensed under the MIT License.
 from asammdf import MDF
 from datetime import datetime, timedelta
 import time 
@@ -28,6 +30,7 @@ def processSignalAsParquet(counter, filename, signalMetadata, uuid, targetdir, b
     channel_index = signalMetadata["channel_index"]
     print(f"pid {os.getpid()}: Processing signal {counter}: {signal_name} group index {group_index} channel index {channel_index}") 
 
+
     try:        
         # Open the MDF file and select a single signal
         mdf = MDF(filename)     
@@ -37,39 +40,41 @@ def processSignalAsParquet(counter, filename, signalMetadata, uuid, targetdir, b
         if signal_name in blacklistedSignals:
             return (f"pid {os.getpid()}", False, counter, f">>> Skipped: {signalMetadata}")
 
-
         # We select a specific signal, both decoded and raw
         decodedSignal = mdf.select(channels=[(None, group_index, channel_index)])[0]
         rawSignal = mdf.select(channels=[(None, group_index, channel_index)], raw=True)[0]
     
 
         try:
+
+            numberOfSamples = len(decodedSignal.timestamps)
+            
             source_name, source_type, bus_type, channel_group_acq_name, acq_source_name, acq_source_path = getSource(mdf, decodedSignal)
-            numericSignals, stringSignals = extractSignalsByType(decodedSignal, rawSignal)                       
+            floatSignals, integerSignals, decimalSignals, stringSignals = extractSignalsByType(decodedSignal)                       
 
-            if (len(decodedSignal.timestamps) == 0):
+            if (numberOfSamples == 0):
                 raise Exception("Skipped: No entries found")
-
 
             table = pa.table (
                 {                   
-                    "source_uuid": np.full(len(decodedSignal.timestamps), str(uuid), dtype=object),
-                    "name": np.full(len(decodedSignal.timestamps), decodedSignal.name, dtype=object),
-                    "unit": np.full(len(decodedSignal.timestamps), decodedSignal.unit, dtype=object),
+                    "source_uuid": np.full(numberOfSamples, str(uuid), dtype=object),
+                    "name": np.full(numberOfSamples, decodedSignal.name, dtype=object),
+                    "unit": np.full(numberOfSamples, decodedSignal.unit, dtype=object),
                     "timestamp": decodedSignal.timestamps,
                     "timestamp_diff": np.append(0, np.diff(decodedSignal.timestamps)),
-                    "value": numericSignals,
+                    "value_float": floatSignals,
+                    "value_int": integerSignals,
+                    "value_decimal": decimalSignals,
                     "value_string": stringSignals,
                     "valueRaw" : rawSignal.samples,
                     "source": np.full(len(decodedSignal.timestamps), source_name, dtype=object),
-                    "channel_group_acq_name": np.full(len(decodedSignal.timestamps), channel_group_acq_name, dtype=object),
-                    "acq_source_name": np.full(len(decodedSignal.timestamps), acq_source_name, dtype=object),
-                    "acq_source_path": np.full(len(decodedSignal.timestamps), acq_source_path, dtype=object),
-                    "source_type": np.full(len(decodedSignal.timestamps), source_type, dtype=object),
-                    "bus_type": np.full(len(decodedSignal.timestamps), bus_type, dtype=object)
+                    "channel_group_acq_name": np.full(numberOfSamples, channel_group_acq_name, dtype=object),
+                    "acq_source_name": np.full(numberOfSamples, acq_source_name, dtype=object),
+                    "acq_source_path": np.full(numberOfSamples, acq_source_path, dtype=object),
+                    "source_type": np.full(numberOfSamples, source_type, dtype=object),
+                    "bus_type": np.full(numberOfSamples, bus_type, dtype=object)
                 }
-            ) 
-            
+            )             
 
             # Escape all characters from the decodedSignal.name and use only alphanumeric and underscore for the basename
             # This is to avoid issues with the basename_template and parquet
@@ -78,7 +83,7 @@ def processSignalAsParquet(counter, filename, signalMetadata, uuid, targetdir, b
             pq.write_to_dataset(
                 table, 
                 root_path=targetdir,
-                basename_template=f"{parquetFileName}-{counter}-{{i}}.parquet",
+                basename_template=f"{group_index}-{channel_index}-{parquetFileName}-{{i}}.parquet",
                 use_threads=True,
                 compression="snappy")                
             

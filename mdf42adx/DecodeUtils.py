@@ -34,7 +34,7 @@ def getSource(mdf, signal):
 
     return source_name, source_type, bus_type, channel_group_acq_name, acq_source_name, acq_source_path
 
-def extractSignalsByType(decodedSignal):
+def extractSignalsByType(decodedSignal, rawSignal):
     '''
         Extracts the signals from the MDF-4 file and converts them to a numeric or string representation
         Takes into consideration numbers, strings and records (rendered as a string) 
@@ -43,9 +43,9 @@ def extractSignalsByType(decodedSignal):
         Trying to use the wrong type will create issues related to loss of precision.
         We have the following types in asammdf mapped to ADX:
             records -> stringSignals / decomposed
-            strings -> stringSignals
+            strings -> stringSignals and raw value in floatSignals
             float64, float32 -> floatSignals
-            uint64 -> decimalSignals
+            uint64 -> decimalSignals ONLY
             all other ints (int8, int16, uint32) -> integerSignals AND floatSignals
 
     '''   
@@ -54,31 +54,34 @@ def extractSignalsByType(decodedSignal):
     # create an empty array for each type of signal initialized to nan or zero values
     floatSignals = np.full(numberOfSamples, np.nan, dtype=np.double)
     integerSignals = np.zeros(numberOfSamples, dtype=np.int64)
-    decimalSignals = np.zeros(numberOfSamples, dtype=np.uint64)
+    uint64Signals = np.zeros(numberOfSamples, dtype=np.uint64)
     stringSignals = np.empty(numberOfSamples, dtype=str)
 
+    # If it is a record we will decompose its contents on the string field
     if np.issubdtype(decodedSignal.samples.dtype, np.record):
         stringSignals = [record.pprint() for record in decodedSignal.samples]
 
-    # Check if the value is a string or other type of object
-    elif np.issubdtype(decodedSignal.samples.dtype, np.object):
-        stringSignals = decodedSignal.samples.astype(str)
-
-    # Check if decodedSignal.samples.dtype is either a float32 or a float64
-    # If this is the case, we wont fill integer as we lose the decimals.
+    # If the value can be represented as a float is the only thing we need.
     elif np.issubdtype(decodedSignal.samples.dtype, np.floating):
-        floatSignals = decodedSignal.samples
+        floatSignals = decodedSignal.samples        
 
     # Check if decodedSignal.samples.dtype is a uint64. If it is, we will only set this - otherwise we can trigger a loss of precision in analysis
     elif np.issubdtype(decodedSignal.samples.dtype, np.uint64):
-        decimalSignals = decodedSignal.samples
+        uint64Signals = decodedSignal.samples
  
     # Check if decodedSignal.samples.dtype is any other integer type
     # In this case we take the risk of loss of precision, because most of the time double is more than ok to represent
-    # the int values and they are more useful in analysis.
-    elif np.issubdtype(decodedSignal.samples.dtype, np.integer):
+    # the int values and they are more useful in analysis. However, we will keep the integer representation as well.
+    elif np.issubdtype(decodedSignal.samples.dtype, np.integer) or np.issubdtype(decodedSignal.samples.dtype, np.unsignedinteger)  :
         floatSignals = decodedSignal.samples
         integerSignals = decodedSignal.samples
+    
+    # For everything else use the previous approach
+    else:
+        floatSignals = rawSignal.samples.astype(float)
+        stringSignals = decodedSignal.samples.astype(str)
+
+    
 
 
-    return floatSignals, integerSignals, decimalSignals, stringSignals
+    return floatSignals, integerSignals, uint64Signals, stringSignals

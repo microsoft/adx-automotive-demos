@@ -49,6 +49,7 @@ def writeMetadata(filename, basename, uuid, target):
             "source_uuid": str(uuid),
             "preparation_startDate": str(datetime.utcnow()),
             "signals": [],
+            "signals_comment": [],
             "comments": mdf.header.comment,
         }
 
@@ -60,7 +61,6 @@ def writeMetadata(filename, basename, uuid, target):
                 {
                     "name": signal.name,
                     "unit": signal.unit,
-                    "comment": signal.comment,
                     "group_index": signal.group_index,
                     "channel_index": signal.channel_index,
                     "channel_group_acq_name": channel_group_acq_name,
@@ -69,10 +69,12 @@ def writeMetadata(filename, basename, uuid, target):
                     "source" : source_name,
                     "source_type": source_type,
                     "bus_type": bus_type,
-                    "datatype": signal.samples.dtype.name,
-                    "conversion": str(signal.conversion)
+                    "datatype": signal.samples.dtype.name
                 }          
             )
+
+            metadata["signals_comment"].append(signal.comment)
+
         metadataFile.write(json.dumps(metadata))
        
     print(f"Finished writing metadata file {basename}-{uuid} with {len(metadata['signals'])} signals")

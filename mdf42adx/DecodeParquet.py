@@ -50,7 +50,7 @@ def processSignalAsParquet(counter, filename, signalMetadata, uuid, targetdir, b
             numberOfSamples = len(decodedSignal.timestamps)
             
             source_name, source_type, bus_type, channel_group_acq_name, acq_source_name, acq_source_path = getSource(mdf, decodedSignal)
-            floatSignals, integerSignals, decimalSignals, stringSignals = extractSignalsByType(decodedSignal)                       
+            floatSignals, integerSignals, uint64Signals, stringSignals = extractSignalsByType(decodedSignal=decodedSignal, rawSignal=rawSignal)                       
 
             if (numberOfSamples == 0):
                 raise Exception("Skipped: No entries found")
@@ -62,9 +62,9 @@ def processSignalAsParquet(counter, filename, signalMetadata, uuid, targetdir, b
                     "unit": np.full(numberOfSamples, decodedSignal.unit, dtype=object),
                     "timestamp": decodedSignal.timestamps,
                     "timestamp_diff": np.append(0, np.diff(decodedSignal.timestamps)),
-                    "value_float": floatSignals,
+                    "value": floatSignals,
                     "value_int": integerSignals,
-                    "value_decimal": decimalSignals,
+                    "value_uint64": uint64Signals,
                     "value_string": stringSignals,
                     "valueRaw" : rawSignal.samples,
                     "source": np.full(len(decodedSignal.timestamps), source_name, dtype=object),

@@ -136,24 +136,23 @@ def processFile(filename):
 
     # If the argument is dump, show the signals
     if (args.dump):
-       numberOfSignals = dumpSignals(filename)
-        
-    # Otherwise export to the desired format
-    else:        
+       numberOfSignals = dumpSignals(filename)            
+    else:
+        # Write the metadata file
         basename = Path(filename).stem
-        file_uuid = uuid.uuid4()          
-
-        # Write a metadata file with all the file and signal information
+        file_uuid = uuid.uuid4()              
         signalsMetadata = writeMetadata(filename, basename, file_uuid, args.target)        
         numberOfSignals = len(signalsMetadata)
 
-        # Use the right method based on the format
-        if (args.exportFormat == "parquet"):         
-            processSignals(filename, basename, file_uuid, args.target, signalsMetadata, readBlacklistedSignals(), processSignalAsParquet)
-        elif (args.exportFormat == "csv"):         
-            processSignals(filename, basename, file_uuid, args.target, signalsMetadata, readBlacklistedSignals(), processSignalAsCsv)
-        else:
-            print("Incorrect format selected, use argument --format with parquet or csv")                
+        # if not metadata_only, process the signals
+        if (not args.metadata_only):    
+            # Use the right method based on the format
+            if (args.exportFormat == "parquet"):         
+                processSignals(filename, basename, file_uuid, args.target, signalsMetadata, readBlacklistedSignals(), processSignalAsParquet)
+            elif (args.exportFormat == "csv"):         
+                processSignals(filename, basename, file_uuid, args.target, signalsMetadata, readBlacklistedSignals(), processSignalAsCsv)
+            else:
+                print("Incorrect format selected, use argument --format with parquet or csv")                
 
     end_time = time.time() - start_time
     print (f"Processing {filename} took {end_time} and has {numberOfSignals} signals")
@@ -170,6 +169,7 @@ if __name__ == "__main__":
     parser.add_argument("-d", "--directory", dest="directory", help="Path to a directory with MDF-4 files.")
     parser.add_argument("-t", "--target", dest="target", default=".", help="Location where the processed files will be stored.")
     parser.add_argument("--dump", dest="dump", action="store_true", help="Shows the signals contained in the file. No export will be made.")
+    parser.add_argument("--metadata_only", dest="metadata_only", action="store_true", help="Only creates the metadata file. No export will be made.")
     parser.add_argument("--format", dest="exportFormat", default="parquet", help="Use csv or parquet to select your export format. Default is parquet")
     args = parser.parse_args()
 

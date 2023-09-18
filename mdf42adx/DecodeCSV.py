@@ -37,11 +37,10 @@ def processSignalAsCsv(counter, filename, signalMetadata, uuid, targetdir, black
     # open the file in the write mode
     with gzip.open(targetfile, 'wt') as csvFile:
 
-        source_name, source_type, bus_type, channel_group_acq_name, acq_source_name, acq_source_path = getSource(mdf, decodedSignal)
         floatSignals, integerSignals, uint64Signals, stringSignals = extractSignalsByType(decodedSignal=decodedSignal, rawSignal=rawSignal)                       
 
         writer = csv.writer(csvFile)
-        writer.writerow(["source_uuid", "name", "unit", "timestamp", "value", "value_string", "value_raw", "source", "channel_group_acq_name", "acq_source_name", "acq_source_path", "source_type", "bus_type"])                
+        writer.writerow(["source_uuid", "group_index", "channel_index", "name", "unit", "timestamp", "value", "value_string", "value_raw"])                
                         
         # Iterate on the entries for the signal
         for indx in range(0, len(decodedSignal.timestamps)):
@@ -49,18 +48,14 @@ def processSignalAsCsv(counter, filename, signalMetadata, uuid, targetdir, black
             writer.writerow(
                 [
                     str(uuid),
+                    group_index,
+                    channel_index,
                     decodedSignal.name, 
                     decodedSignal.unit, 
                     decodedSignal.timestamps[indx],
                     floatSignals[indx],
                     stringSignals[indx],
                     rawSignal[indx],
-                    source_name,
-                    channel_group_acq_name,
-                    acq_source_name,
-                    acq_source_path,                    
-                    source_type,
-                    bus_type,
                 ]
             )
 

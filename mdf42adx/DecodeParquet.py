@@ -48,8 +48,7 @@ def processSignalAsParquet(counter, filename, signalMetadata, uuid, targetdir, b
         try:
 
             numberOfSamples = len(decodedSignal.timestamps)
-            
-            source_name, source_type, bus_type, channel_group_acq_name, acq_source_name, acq_source_path = getSource(mdf, decodedSignal)
+                        
             floatSignals, integerSignals, uint64Signals, stringSignals = extractSignalsByType(decodedSignal=decodedSignal, rawSignal=rawSignal)                       
 
             if (numberOfSamples == 0):
@@ -58,6 +57,8 @@ def processSignalAsParquet(counter, filename, signalMetadata, uuid, targetdir, b
             table = pa.table (
                 {                   
                     "source_uuid": np.full(numberOfSamples, str(uuid), dtype=object),
+                    "group_index": np.full(numberOfSamples, group_index, dtype=np.int32),
+                    "channel_index": np.full(numberOfSamples, channel_index, dtype=np.int32),
                     "name": np.full(numberOfSamples, decodedSignal.name, dtype=object),
                     "unit": np.full(numberOfSamples, decodedSignal.unit, dtype=object),
                     "timestamp": decodedSignal.timestamps,
@@ -67,12 +68,6 @@ def processSignalAsParquet(counter, filename, signalMetadata, uuid, targetdir, b
                     "value_uint64": uint64Signals,
                     "value_string": stringSignals,
                     "valueRaw" : rawSignal.samples,
-                    "source": np.full(len(decodedSignal.timestamps), source_name, dtype=object),
-                    "channel_group_acq_name": np.full(numberOfSamples, channel_group_acq_name, dtype=object),
-                    "acq_source_name": np.full(numberOfSamples, acq_source_name, dtype=object),
-                    "acq_source_path": np.full(numberOfSamples, acq_source_path, dtype=object),
-                    "source_type": np.full(numberOfSamples, source_type, dtype=object),
-                    "bus_type": np.full(numberOfSamples, bus_type, dtype=object)
                 }
             )             
 

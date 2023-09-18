@@ -44,7 +44,7 @@ def processSignals(filename, basename, uuid, target, signalsMetadata, blackliste
         # Create a pool of worker processes with all available CPUs -1
         # To avoid potential conflicts with the MDF library, we will restart the process for each signal (maxtasks per child=1)
         # We also use the spawn context to avoid problems with fork()
-        pool = get_context("spawn").Pool(mp.cpu_count()-1, maxtasksperchild=1)
+        pool = get_context("spawn").Pool(mp.cpu_count()-1, maxtasksperchild=10)
         
 
         # Iterate over the signals contained in the MDF-4 file.

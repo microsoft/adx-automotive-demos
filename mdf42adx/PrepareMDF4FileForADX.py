@@ -64,6 +64,7 @@ def processSignals(filename, basename, uuid, target, signalsMetadata, blackliste
         # All tasks have been submitted, no more tasks will be added to this pool.
         pool.close()
 
+        vEntriesCount = 0 # Capture TOTAL( no. of entries per signal )
         # get the task result with a timeout defined as 3 minutes per signal.
         # This is a blocking call, so we will check the results in the order in which the tasks are submitted
         for counter, result in enumerate(results):            
@@ -78,6 +79,15 @@ def processSignals(filename, basename, uuid, target, signalsMetadata, blackliste
                         "value": value
                     }
                 )
+
+                # Capture finishedSignals with no errors, i.e. with 'True' from Decoding so we can add it to the total entries counts:
+                # Use the right method based on the format
+                if (args.exportFormat == "parquet"):         
+                    vEntriesCount = vEntriesCount + value[4] # value[4] is the position of return from DecodeParquet.py - the record count
+                elif (args.exportFormat == "csv"):         
+                    vEntriesCount = vEntriesCount + value[1] # value[1] is the position of return from DecodeCSV.py - the record count
+
+
             except mp.TimeoutError as te:
                 print(f"TimeoutError for {counter} - {signalsMetadata[counter]['name']}: {te}")
                 timeoutSignals.append(
@@ -107,6 +117,7 @@ def processSignals(filename, basename, uuid, target, signalsMetadata, blackliste
         print (f"Finished: {finishedSignals}")
         print (f"Errors: {errorSignals}")
         print (f"Timeout signals: {timeoutSignals}")
+        print(f'Total Cumulative Signal entries count: {vEntriesCount}')
         createReport(basename, target, uuid, finishedSignals, errorSignals, timeoutSignals)
         pool.terminate()
 

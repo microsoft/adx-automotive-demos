@@ -83,14 +83,14 @@ def processSignalAsParquet(counter, filename, signalMetadata, uuid, targetdir, b
                 compression="snappy")                
             
         except Exception as e:
-            return (f"pid {os.getpid()}", False, counter, f"Signal {counter}: {decodedSignal.name} with {len(decodedSignal.timestamps)} failed: {str(e)}")
+            return (f"pid {os.getpid()}", False, counter, f"Signal {counter}: {decodedSignal.name} with {len(decodedSignal.timestamps)} failed: {str(e)}", 0) # Last position is here the no. of entries count - for failed signal this will be 0
         
         end_signal_time = time.time() - start_signal_time        
 
-        return (f"pid {os.getpid()}", True, counter, f"Processed signal {counter}: {decodedSignal.name} with {len(decodedSignal.timestamps)} entries in {end_signal_time}")       
+        return (f"pid {os.getpid()}", True, counter, f"Processed signal {counter}: {decodedSignal.name} with {len(decodedSignal.timestamps)} entries in {end_signal_time}", {len(decodedSignal.timestamps)}) # Last position is here the no. of entries count - length will suffice to check no. of entries 
     
     except Exception as e:
-        return (f"pid {os.getpid()}", False, counter, f"Signal {counter}: {decodedSignal.name} with {len(decodedSignal.timestamps)} failed: {str(e)}")
+        return (f"pid {os.getpid()}", False, counter, f"Signal {counter}: {decodedSignal.name} with {len(decodedSignal.timestamps)} failed: {str(e)}", 0) # Last position is here the no. of entries count - for failed signal this will be 0
     
     finally:
         mdf.close()

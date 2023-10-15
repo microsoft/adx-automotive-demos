@@ -8,6 +8,17 @@
 // Create the table for the  signal metadata
 .create table ['metadata']  (['name']:string, ['source_uuid']:guid, ['preparation_startDate']:datetime, ['signals']:dynamic, ['signals_comment']:dynamic, ['signals_decoding']:dynamic, ['group_comment']:dynamic, ['comments']:string)
 
+// Alter the policy to allow entries of any size
+
+.alter column signals_metadata.signals policy encoding type="BigObject32"
+
+.alter column signals_metadata.signals_comment policy encoding type="BigObject32"
+
+.alter column signals_metadata.signals_decoding policy encoding type="BigObject32"
+
+.alter column signals_metadata.comments policy encoding type="BigObject32"
+
+.alter column signals_metadata.group_comment policy encoding type="BigObject32"
 
 // Create the ingestion mappings
 .create table ['signals'] ingestion parquet mapping 'signals_parquet_mapping' '[{"column":"source_uuid", "Properties":{"Path":"$[\'source_uuid\']"}},{"column":"name", "Properties":{"Path":"$[\'name\']"}},{"column":"unit", "Properties":{"Path":"$[\'unit\']"}},{"column":"timestamp", "Properties":{"Path":"$[\'timestamp\']"}},{"column":"value", "Properties":{"Path":"$[\'value\']"}},{"column":"value_string", "Properties":{"Path":"$[\'value_string\']"}},{"column":"source", "Properties":{"Path":"$[\'source\']"}},{"column":"source_type", "Properties":{"Path":"$[\'source_type\']"}},{"column":"bus_type", "Properties":{"Path":"$[\'bus_type\']"}}]'

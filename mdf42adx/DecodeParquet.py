@@ -37,8 +37,9 @@ def processSignalAsParquet(counter, filename, signalMetadata, uuid, targetdir, b
 
         start_signal_time = time.time()
 
+        # If the signal is blacklisted, we skip it and return 0 samples
         if signal_name in blacklistedSignals:
-            return (f"pid {os.getpid()}", False, counter, f">>> Skipped: {signalMetadata}")
+            return (f"pid {os.getpid()}", True, counter, f"Skipped: {signalMetadata}", 0)
 
         # We select a specific signal, both decoded and raw
         decodedSignal = mdf.select(channels=[(None, group_index, channel_index)])[0]
@@ -48,16 +49,19 @@ def processSignalAsParquet(counter, filename, signalMetadata, uuid, targetdir, b
         try:
 
             numberOfSamples = len(decodedSignal.timestamps)
-            
-            source_name, source_type, bus_type, channel_group_acq_name, acq_source_name, acq_source_path = getSource(mdf, decodedSignal)
-            floatSignals, integerSignals, uint64Signals, stringSignals = extractSignalsByType(decodedSignal=decodedSignal, rawSignal=rawSignal)                       
 
-            if (numberOfSamples == 0):
-                raise Exception("Skipped: No entries found")
+            # If there are no samples, we report a success but with 0 samples
+            if (numberOfSamples == 0):                
+                return (f"pid {os.getpid()}", True, counter, f"Processed signal {counter}: {decodedSignal.name} - no samples in file", numberOfSamples)
+
+
+            floatSignals, integerSignals, uint64Signals, stringSignals = extractSignalsByType(decodedSignal=decodedSignal, rawSignal=rawSignal)                       
 
             table = pa.table (
                 {                   
                     "source_uuid": np.full(numberOfSamples, str(uuid), dtype=object),
+                    "group_index": np.full(numberOfSamples, group_index, dtype=np.int32),
+                    "channel_index": np.full(numberOfSamples, channel_index, dtype=np.int32),
                     "name": np.full(numberOfSamples, decodedSignal.name, dtype=object),
                     "unit": np.full(numberOfSamples, decodedSignal.unit, dtype=object),
                     "timestamp": decodedSignal.timestamps,
@@ -67,12 +71,6 @@ def processSignalAsParquet(counter, filename, signalMetadata, uuid, targetdir, b
                     "value_uint64": uint64Signals,
                     "value_string": stringSignals,
                     "valueRaw" : rawSignal.samples,
-                    "source": np.full(len(decodedSignal.timestamps), source_name, dtype=object),
-                    "channel_group_acq_name": np.full(numberOfSamples, channel_group_acq_name, dtype=object),
-                    "acq_source_name": np.full(numberOfSamples, acq_source_name, dtype=object),
-                    "acq_source_path": np.full(numberOfSamples, acq_source_path, dtype=object),
-                    "source_type": np.full(numberOfSamples, source_type, dtype=object),
-                    "bus_type": np.full(numberOfSamples, bus_type, dtype=object)
                 }
             )             
 
@@ -88,14 +86,14 @@ def processSignalAsParquet(counter, filename, signalMetadata, uuid, targetdir, b
                 compression="snappy")                
             
         except Exception as e:
-            return (f"pid {os.getpid()}", False, counter, f"Signal {counter}: {decodedSignal.name} with {len(decodedSignal.timestamps)} failed: {str(e)}")
+            return (f"pid {os.getpid()}", False, counter, f"Signal {counter}: {decodedSignal.name} with {len(decodedSignal.timestamps)} failed: {str(e)}", 0)
         
         end_signal_time = time.time() - start_signal_time        
-
-        return (f"pid {os.getpid()}", True, counter, f"Processed signal {counter}: {decodedSignal.name} with {len(decodedSignal.timestamps)} entries in {end_signal_time}")       
+        
+        return (f"pid {os.getpid()}", True, counter, f"Processed signal {counter}: {decodedSignal.name} with {len(decodedSignal.timestamps)} entries in {end_signal_time}", numberOfSamples)
     
     except Exception as e:
-        return (f"pid {os.getpid()}", False, counter, f"Signal {counter}: {decodedSignal.name} with {len(decodedSignal.timestamps)} failed: {str(e)}")
+        return (f"pid {os.getpid()}", False, counter, f"Signal {counter}: {decodedSignal.name} with {len(decodedSignal.timestamps)} failed: {str(e)}", 0)
     
     finally:
         mdf.close()

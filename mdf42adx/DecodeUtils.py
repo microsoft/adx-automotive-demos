@@ -32,7 +32,17 @@ def getSource(mdf, signal):
     except:
         acq_source_path = ""
 
-    return source_name, source_type, bus_type, channel_group_acq_name, acq_source_name, acq_source_path
+    try:
+        channel_group_acq_source_comment = mdf.groups[signal.group_index].channel_group.acq_source.comment
+    except:
+        channel_group_acq_source_comment = ""
+
+    try:
+        channel_group_comment = mdf.groups[signal.group_index].channel_group.comment
+    except:
+        channel_group_comment = ""
+
+    return source_name, source_type, bus_type, channel_group_acq_name, acq_source_name, acq_source_path, channel_group_acq_source_comment, channel_group_comment
 
 def extractSignalsByType(decodedSignal, rawSignal):
     '''

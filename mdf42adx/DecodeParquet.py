@@ -37,8 +37,9 @@ def processSignalAsParquet(counter, filename, signalMetadata, uuid, targetdir, b
 
         start_signal_time = time.time()
 
+        # If the signal is blacklisted, we skip it and return 0 samples
         if signal_name in blacklistedSignals:
-            return (f"pid {os.getpid()}", False, counter, f">>> Skipped: {signalMetadata}")
+            return (f"pid {os.getpid()}", True, counter, f"Skipped: {signalMetadata}", 0)
 
         # We select a specific signal, both decoded and raw
         decodedSignal = mdf.select(channels=[(None, group_index, channel_index)])[0]
@@ -48,11 +49,13 @@ def processSignalAsParquet(counter, filename, signalMetadata, uuid, targetdir, b
         try:
 
             numberOfSamples = len(decodedSignal.timestamps)
-                        
-            floatSignals, integerSignals, uint64Signals, stringSignals = extractSignalsByType(decodedSignal=decodedSignal, rawSignal=rawSignal)                       
 
-            if (numberOfSamples == 0):
-                raise Exception("Skipped: No entries found")
+            # If there are no samples, we report a success but with 0 samples
+            if (numberOfSamples == 0):                
+                return (f"pid {os.getpid()}", True, counter, f"Processed signal {counter}: {decodedSignal.name} - no samples in file", numberOfSamples)
+
+
+            floatSignals, integerSignals, uint64Signals, stringSignals = extractSignalsByType(decodedSignal=decodedSignal, rawSignal=rawSignal)                       
 
             table = pa.table (
                 {                   
@@ -83,14 +86,14 @@ def processSignalAsParquet(counter, filename, signalMetadata, uuid, targetdir, b
                 compression="snappy")                
             
         except Exception as e:
-            return (f"pid {os.getpid()}", False, counter, f"Signal {counter}: {decodedSignal.name} with {len(decodedSignal.timestamps)} failed: {str(e)}", 0) # Last position is here the no. of entries count - for failed signal this will be 0
+            return (f"pid {os.getpid()}", False, counter, f"Signal {counter}: {decodedSignal.name} with {len(decodedSignal.timestamps)} failed: {str(e)}", 0)
         
         end_signal_time = time.time() - start_signal_time        
-
-        return (f"pid {os.getpid()}", True, counter, f"Processed signal {counter}: {decodedSignal.name} with {len(decodedSignal.timestamps)} entries in {end_signal_time}", {len(decodedSignal.timestamps)}) # Last position is here the no. of entries count - length will suffice to check no. of entries 
+        
+        return (f"pid {os.getpid()}", True, counter, f"Processed signal {counter}: {decodedSignal.name} with {len(decodedSignal.timestamps)} entries in {end_signal_time}", numberOfSamples)
     
     except Exception as e:
-        return (f"pid {os.getpid()}", False, counter, f"Signal {counter}: {decodedSignal.name} with {len(decodedSignal.timestamps)} failed: {str(e)}", 0) # Last position is here the no. of entries count - for failed signal this will be 0
+        return (f"pid {os.getpid()}", False, counter, f"Signal {counter}: {decodedSignal.name} with {len(decodedSignal.timestamps)} failed: {str(e)}", 0)
     
     finally:
         mdf.close()

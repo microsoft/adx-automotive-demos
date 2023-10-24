@@ -64,4 +64,5 @@ def processSignalAsCsv(counter, filename, signalMetadata, uuid, targetdir, black
     end_signal_time = time.time() - start_signal_time
     mdf.close()
     
-    return (f"Signal {counter}: {decodedSignal.name} with {len(decodedSignal.timestamps)} entries took {end_signal_time}", len(decodedSignal.timestamps)) # Last position is here the no. of entries count - length will suffice to check no. of entries 
+    return (f"pid {os.getpid()}", True, counter, f"Processed signal {counter}: {decodedSignal.name} with {len(decodedSignal.timestamps)} entries in {end_signal_time}", len(decodedSignal.timestamps))
+    

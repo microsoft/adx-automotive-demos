@@ -11,8 +11,8 @@ The project folder contains an ingestion preparation script, a sample data struc
 * Create a [free Azure Data Explorer Cluster](https://learn.microsoft.com/azure/data-explorer/start-for-free-web-ui) and create a database.
 * Execute the deployment scripts to create tables and script.
 * Prepare a development environment to run the MDF preparation scripts.
-    * (Optional) Generate an MDF-4 file.
-    * Process MDF files for ingestion.
+  * (Optional) Generate an MDF-4 file.
+  * Process MDF files for ingestion.
 * Ingest the files in ADX using the [ingest data wizard](https://learn.microsoft.com/azure/data-explorer/ingest-data-wizard) functionality.
 * Run queries on the data.
 
@@ -21,8 +21,9 @@ The project folder contains an ingestion preparation script, a sample data struc
 The deployment script is stored in deployment.kql. Load the file in Azure Data Explorer using the "File/Open" function and execute all commands.
 
 The script creates two tables, *signals* and *signals_metadata*.
-- The *signals* table stores all values contained in the MDF file
-- The *signals_metadata* table stores information about the files, such as included signals and group names.
+
+* The *signals* table stores all values contained in the MDF file
+* The *signals_metadata* table stores information about the files, such as included signals and group names.
 
 The script also creates mapping for ingestion.
 
@@ -43,18 +44,19 @@ The PrepareMDF4FileForADX will take a MDF-4 file as argument and create parquet 
 - Execute the following command to see available options
 
 ``` bash
-python PrepareMDF4FileForADX.py --help
+python MDF2AnalyticsFormat.py --help
 ```
 
 Using the sample file, the command looks like this:
 
 ``` bash
-python PrepareMDF4FileForADX.py --file samplefile.mf4 --target ~/<mydestinationdir> --format parquet
+python MDF2AnalyticsFormat.py --file samplefile.mf4 --target ~/<mydestinationdir> --format parquet
 ```
 
-The script will create several files
-- A set of parquet or CSV files, organized by signals.
-- A JSON metadata file containing the information about the MDF-4 file.
+The script will create several files:
+
+* A set of parquet or CSV files, organized by signals.
+* A JSON metadata file containing the information about the MDF-4 file.
 
 ### Ingest files into ADX
 

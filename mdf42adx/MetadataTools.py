@@ -51,12 +51,13 @@ def writeMetadata(filename, basename, uuid, target):
             "signals": [],
             "signals_comment": [],
             "signals_decoding": [],
+            "group_comment": [],
             "comments": mdf.header.comment,
         }
-
+        
         for signal in mdf.iter_channels(raw=True):
 
-            source_name, source_type, bus_type, channel_group_acq_name, acq_source_name, acq_source_path = getSource(mdf, signal)
+            source_name, source_type, bus_type, channel_group_acq_name, acq_source_name, acq_source_path, channel_group_acq_source_comment, channel_group_comment = getSource(mdf, signal)
 
             metadata["signals"].append(
                 {
@@ -70,13 +71,20 @@ def writeMetadata(filename, basename, uuid, target):
                     "source" : source_name,
                     "source_type": source_type,
                     "bus_type": bus_type,
-                    "datatype": signal.samples.dtype.name
+                    "datatype": signal.samples.dtype.name,
                 }          
             )
 
             metadata["signals_comment"].append(signal.comment)
-            
+
             metadata["signals_decoding"].append(str(signal.conversion))
+
+            metadata["group_comment"].append(
+                {
+                    "channel_group_acq_source_comment": channel_group_acq_source_comment,
+                    "channel_group_comment": channel_group_comment
+                }
+            )
 
         metadataFile.write(json.dumps(metadata))
        

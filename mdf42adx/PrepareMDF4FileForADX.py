@@ -19,7 +19,7 @@ def log_result(result):
 def log_error(error):
     print(f"{error}")
 
-def processSignals(filename, basename, uuid, target, signalsMetadata, blacklistedSignals, method):
+def processSignals(filename, basename, uuid, target, signalsMetadata, blacklistedSignals, method, numberOfSignals):
     '''
         Writes the MDF-4 file to a file that can be used by ADX.
         Each signal will be processed in parallel.
@@ -86,6 +86,9 @@ def processSignals(filename, basename, uuid, target, signalsMetadata, blackliste
                     vEntriesCount = vEntriesCount + value[4] # value[4] is the position of return from DecodeParquet.py - the record count
                 elif (args.exportFormat == "csv"):         
                     vEntriesCount = vEntriesCount + value[1] # value[1] is the position of return from DecodeCSV.py - the record count
+                    
+                    
+                print(f"Percentage Complete: { ( len(finishedSignals) / numberOfSignals)*100}% ") # Approx. % completition based on successful Signals Only
 
 
             except mp.TimeoutError as te:
@@ -160,9 +163,9 @@ def processFile(filename):
 
         # Use the right method based on the format
         if (args.exportFormat == "parquet"):         
-            processSignals(filename, basename, file_uuid, args.target, signalsMetadata, readBlacklistedSignals(), processSignalAsParquet)
+            processSignals(filename, basename, file_uuid, args.target, signalsMetadata, readBlacklistedSignals(), processSignalAsParquet, numberOfSignals)
         elif (args.exportFormat == "csv"):         
-            processSignals(filename, basename, file_uuid, args.target, signalsMetadata, readBlacklistedSignals(), processSignalAsCsv)
+            processSignals(filename, basename, file_uuid, args.target, signalsMetadata, readBlacklistedSignals(), processSignalAsCsv, numberOfSignals)
         else:
             print("Incorrect format selected, use argument --format with parquet or csv")                
 

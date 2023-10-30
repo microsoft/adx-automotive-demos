@@ -17,6 +17,6 @@ RUN chmod -R 777 /app/
 # Install any additional dependencies if required
 RUN pip install setuptools==57.5.0
 
-RUN pip install asammdf==7.3.14 pathlib==1.0.1 numpy==1.25.2 uuid==1.30 pyarrow==12.0.1 azure-core==1.29.1
+RUN pip install asammdf==7.3.14 pathlib==1.0.1 numpy==1.25.2 uuid==1.30 pyarrow==12.0.1 azure-core==1.29.1 psutil==5.9.6
 
 CMD ["python", "/app/AzBatchMDF2AnalyticsFormat.py"]

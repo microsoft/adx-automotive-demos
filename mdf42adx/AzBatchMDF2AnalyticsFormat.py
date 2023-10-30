@@ -30,7 +30,7 @@ def log_hardwareInfo():
     cpu_percent = psutil.cpu_percent(interval=1)
     total, used, free = shutil.disk_usage("/")
 
-    hardwareInfoLog = f"Memory Usage: {memory_percent:.2f}%\nCPU Usage: {cpu_percent:.2f}%\nDisk Space: Total: {total / (2**30):.2f} GB, Used: {used / (2**30):.2f} GB, Free: {free / (2**30):.2f} GB"
+    hardwareInfoLog = f"***Memory Usage: {memory_percent:.2f}%\nCPU Usage: {cpu_percent:.2f}%\nDisk Space: Total: {total / (2**30):.2f} GB, Used: {used / (2**30):.2f} GB, Free: {free / (2**30):.2f} GB***"
     print(hardwareInfoLog)
     
 

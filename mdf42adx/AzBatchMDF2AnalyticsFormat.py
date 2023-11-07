@@ -18,6 +18,21 @@ from MDF2AnalyticsFormatProcessing import processSignals
 # Dedicated Azure Batch Script:
 from AzureBatch import AzureBatchEnvironmentVariables, AzureBatchProcessFilesOutputFolder
 
+# Monitor VM/Batch Pool Statistics:
+import psutil
+import shutil
+
+
+# Log the VM Statistics that can aid users to understand the performance on the VM and any hardware bottlenecks, e.g. out of memory issues
+def log_hardwareInfo():
+    memory_usage = psutil.virtual_memory()
+    memory_percent = memory_usage.percent
+    cpu_percent = psutil.cpu_percent(interval=1)
+    total, used, free = shutil.disk_usage("/")
+
+    hardwareInfoLog = f"***Memory Usage: {memory_percent:.2f}%\nCPU Usage: {cpu_percent:.2f}%\nDisk Space: Total: {total / (2**30):.2f} GB, Used: {used / (2**30):.2f} GB, Free: {free / (2**30):.2f} GB***"
+    print(hardwareInfoLog)
+    
 
 
 def log_result(result):
@@ -47,46 +62,57 @@ def log_completition(result):
     
     if result == 100 and vPreviousValue < 100:
         print(f'DECODING PROGRESS {result}%...')
+        log_hardwareInfo()
         vPreviousValue = result
 
     elif result >= 90 and vPreviousValue < 90:
         print(f'DECODING PROGRESS {result}%...')
+        log_hardwareInfo()
         vPreviousValue = result
 
     elif result >= 80 and vPreviousValue < 80:
         print(f'DECODING PROGRESS {result}%...')
+        log_hardwareInfo()
         vPreviousValue = result
 
     elif result >= 70 and vPreviousValue < 70:
         print(f'DECODING PROGRESS {result}%...')
+        log_hardwareInfo()
         vPreviousValue = result
 
     elif result >= 60 and vPreviousValue < 60:
         print(f'DECODING PROGRESS {result}%...')
+        log_hardwareInfo()
         vPreviousValue = result
 
     elif result >= 50 and vPreviousValue < 50:
         print(f'DECODING PROGRESS {result}%...')
+        log_hardwareInfo()
         vPreviousValue = result
 
     elif result >= 40 and vPreviousValue < 40:  
         print(f'DECODING PROGRESS {result}%...')
+        log_hardwareInfo()
         vPreviousValue = result
 
     elif result >= 30 and vPreviousValue < 30: 
         print(f'DECODING PROGRESS {result}%...')
+        log_hardwareInfo()
         vPreviousValue = result
 
     elif result >= 20 and vPreviousValue < 20: 
         print(f'DECODING PROGRESS {result}%...')
+        log_hardwareInfo()
         vPreviousValue = result
 
     elif result >= 10 and vPreviousValue < 10:   
         print(f'DECODING PROGRESS {result}%...')
+        log_hardwareInfo()
         vPreviousValue = result
     
     elif result >= 0 and vPreviousValue < 0:   
         print(f'DECODING PROGRESS {result}%...')
+        log_hardwareInfo()
         vPreviousValue = result
 
 
@@ -199,6 +225,9 @@ def processFile(fileLocation, fileNameEnvVar):
 if __name__ == "__main__":
 
     try:
+        print('Starting up...')
+        log_hardwareInfo() # Log the VM Statistics before any decoding happens
+        
         taskWorkingDirectory, taskBatchDirectory, taskNodeRootDirectory, fileNameEnvVar = AzureBatchEnvironmentVariables() # Read the Azure Batch Environment variables - external script 
 
         fileLocation = f"{taskWorkingDirectory}/{fileNameEnvVar}" # Construct the full location of the raw mf4 file on the VM Volume

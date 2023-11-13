@@ -94,7 +94,7 @@ def extractSignalsByType(decodedSignal, rawSignal):
     # For everything else use the previous approach
     else:
         floatSignals = rawSignal.samples.astype(float)
-        stringSignals = decodedSignal.samples.astype(str)
+        stringSignals = decodedSignal.samples.astype("S32") #astype(string) was causing issues with special characters
 
     
 

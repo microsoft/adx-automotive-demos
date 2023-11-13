@@ -57,7 +57,7 @@ def writeMetadata(filename, basename, uuid, target):
         
         for signal in mdf.iter_channels(raw=True):
 
-            source_name, source_type, bus_type, channel_group_acq_name, acq_source_name, acq_source_path, channel_group_acq_source_comment, channel_group_comment = getSource(mdf, signal)
+            source_name, source_type, bus_type, channel_group_acq_name, acq_source_name, acq_source_path, channel_group_acq_source_comment, channel_group_comment, signal_source_path = getSource(mdf, signal)
 
             metadata["signals"].append(
                 {
@@ -72,6 +72,7 @@ def writeMetadata(filename, basename, uuid, target):
                     "source_type": source_type,
                     "bus_type": bus_type,
                     "datatype": signal.samples.dtype.name,
+                    "signal_source_path": signal_source_path,
                 }          
             )
 

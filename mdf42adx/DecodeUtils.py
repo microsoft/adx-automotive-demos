@@ -78,7 +78,7 @@ def extractSignalsByType(decodedSignal, rawSignal):
 
     # If the value can be represented as a float is the only thing we need.
     elif np.issubdtype(decodedSignal.samples.dtype, np.floating):
-        floatSignals = decodedSignal.samples        
+        floatSignals = decodedSignal.samples
 
     # Check if decodedSignal.samples.dtype is a uint64. If it is, we will only set this - otherwise we can trigger a loss of precision in analysis
     elif np.issubdtype(decodedSignal.samples.dtype, np.uint64):
@@ -94,7 +94,7 @@ def extractSignalsByType(decodedSignal, rawSignal):
     # For everything else use the previous approach
     else:
         floatSignals = rawSignal.samples.astype(float)
-        stringSignals = decodedSignal.samples.astype(str)
+        stringSignals = decodedSignal.samples.astype("S32") #astype(string) was causing issues with special characters
 
     
 

@@ -65,9 +65,17 @@ def processSignals(filename, basename, uuid, target, signalsMetadata, blackliste
         # This is a blocking call, so we will check the results in the order in which the tasks are submitted
         for counter, result in enumerate(results):            
 
+
+
             try:
                 #print(f"Waiting for value for {counter} - {signalsMetadata[counter]['name']}")
-                value = result.get(timeout=60*6) # Wait for the value for 6 minutes, if it is not ready, it will probably never be                    
+                value = result.get(timeout=60*6) # Wait for the value for 6 minutes, if it is not ready, it will probably never be   
+
+                #Append the value to signalsMetadata json file
+                signalsMetadata[counter]["signal_decoded_status"] = value[1]
+                signalsMetadata[counter]["records_count"] = value[4]
+                signalsMetadata[counter]["message"] = value[3]
+                
                 finishedSignals.append(
                     {
                         "counter": counter,
@@ -81,10 +89,13 @@ def processSignals(filename, basename, uuid, target, signalsMetadata, blackliste
                     
                 log_completition( (len(finishedSignals) / numberOfSignals)*100 ) # Log the percentage of signals processed
                 
-
-
             except mp.TimeoutError as te:
                 print(f"TimeoutError for {counter} - {signalsMetadata[counter]['name']}: {te}")
+
+                signalsMetadata[counter]["signal_decoded_status"] = False
+                signalsMetadata[counter]["records_count"] = 0
+                signalsMetadata[counter]["message"] = f"TimeoutError {te}"
+
                 timeoutSignals.append(
                     {
                         "counter": counter,
@@ -95,6 +106,11 @@ def processSignals(filename, basename, uuid, target, signalsMetadata, blackliste
                 continue
             except Exception as e:
                 print(f"Exception for {counter} - {signalsMetadata[counter]['name']}: {e}")
+
+                signalsMetadata[counter]["signal_decoded_status"] = False
+                signalsMetadata[counter]["records_count"] = 0
+                signalsMetadata[counter]["message"] = f"Exception {e}"
+
                 errorSignals.append(
                     {
                         "counter": counter,

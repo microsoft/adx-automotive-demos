@@ -12,7 +12,7 @@ import uuid
 from MDF2AnalyticsFormatProcessing import processSignals
 from DecodeParquet import processSignalAsParquet
 from DecodeCSV import processSignalAsCsv
-from MetadataTools import writeMetadata, dumpSignals
+from MetadataTools import calculateMetadata, writeMetadata, dumpSignals
 
 # This implementation just sends the result to the console
 def log_result(result):
@@ -75,8 +75,9 @@ def processFile(filename):
         basename = Path(filename).stem
         file_uuid = uuid.uuid4()          
 
-        # Write a metadata file with all the file and signal information
-        signalsMetadata = writeMetadata(filename, basename, file_uuid, args.target)
+        # Reads the MDF file metadata with all the file and signal information
+        metadata = calculateMetadata(filename, basename, file_uuid)
+        signalsMetadata = metadata["signals"]
         numberOfSignals = len(signalsMetadata)
 
         # Use the right method based on the format
@@ -85,7 +86,10 @@ def processFile(filename):
         elif (args.exportFormat == "csv"):         
             processSignals(filename, basename, file_uuid, args.target, signalsMetadata, readBlacklistedSignals(), processSignalAsCsv, numberOfSignals, log_result, log_error, log_completition, createReport)
         else:
-            print("Incorrect format selected, use argument --format with parquet or csv")                
+            print("Incorrect format selected, use argument --format with parquet or csv")     
+
+        # Writes the calculated metadata
+        writeMetadata(metadata, filename, basename, args.target)           
 
     end_time = time.time() - start_time
     print (f"Processing {filename} took {end_time} and has {numberOfSignals} signals")

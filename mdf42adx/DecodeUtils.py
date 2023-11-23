@@ -2,6 +2,7 @@
 # Licensed under the MIT License.
 import numpy as np
 from asammdf.blocks import v4_constants as v4c
+import traceback
 
 def getSource(mdf, signal):    
     '''
@@ -56,47 +57,51 @@ def extractSignalsByType(decodedSignal, rawSignal):
 
         We have to make sure that we have the right type / storage based on the datatype.
         Trying to use the wrong type will create issues related to loss of precision.
-        We have the following types in asammdf mapped to ADX:
-            records -> stringSignals / decomposed
-            strings -> stringSignals and raw value in floatSignals
-            float64, float32 -> floatSignals
-            uint64 -> decimalSignals ONLY
-            all other ints (int8, int16, uint32) -> integerSignals AND floatSignals
+
+        ADX real datatype is a 64 bit float.
+        This means that all integer types except uint64 and int64 can be stored without loss of precision        
 
     '''   
     numberOfSamples = len(decodedSignal.timestamps)
 
     # create an empty array for each type of signal initialized to nan or zero values
     floatSignals = np.full(numberOfSamples, np.nan, dtype=np.double)
-    integerSignals = np.zeros(numberOfSamples, dtype=np.int64)
-    uint64Signals = np.zeros(numberOfSamples, dtype=np.uint64)
     stringSignals = np.empty(numberOfSamples, dtype=str)
 
-    # If it is a record we will decompose its contents on the string field
-    if np.issubdtype(decodedSignal.samples.dtype, np.record):
-        stringSignals = [record.pprint() for record in decodedSignal.samples]
+    try:
+        # If it is a record we will decompose its contents on the string field
+        # we will not store a value in floatSignals
+        if np.issubdtype(decodedSignal.samples.dtype, np.record):
+            stringSignals = [record.pprint() for record in decodedSignal.samples]
 
-    # If the value can be represented as a float is the only thing we need.
-    elif np.issubdtype(decodedSignal.samples.dtype, np.floating):
-        floatSignals = decodedSignal.samples
+        # If the value can be represented as a float is the only thing we need.
+        # String will be empty
+        elif np.issubdtype(decodedSignal.samples.dtype, np.floating):
+            floatSignals = decodedSignal.samples
 
-    # Check if decodedSignal.samples.dtype is a uint64. If it is, we will only set this - otherwise we can trigger a loss of precision in analysis
-    elif np.issubdtype(decodedSignal.samples.dtype, np.uint64):
-        uint64Signals = decodedSignal.samples
- 
-    # Check if decodedSignal.samples.dtype is any other integer type
-    # In this case we take the risk of loss of precision, because most of the time double is more than ok to represent
-    # the int values and they are more useful in analysis. However, we will keep the integer representation as well.
-    elif np.issubdtype(decodedSignal.samples.dtype, np.integer) or np.issubdtype(decodedSignal.samples.dtype, np.unsignedinteger)  :
-        floatSignals = decodedSignal.samples
-        integerSignals = decodedSignal.samples
+        # Check if decodedSignal.samples.dtype is a uint64 or uint. If it is, we will only store it as string
+        # Floats will not be stored as there is a loss of precision
+        elif np.issubdtype(decodedSignal.samples.dtype, np.uint64) or np.issubdtype(decodedSignal.samples.dtype, np.int64):        
+            stringSignals = decodedSignal.samples.astype(str)   
     
-    # For everything else use the previous approach
-    else:
-        floatSignals = rawSignal.samples.astype(float)
-        stringSignals = decodedSignal.samples.view(np.chararray).decode('utf-8') #astype(string) was causing issues with special characters, and S32 would have truncated results.
+        # We will store all ints smaller or equal to 32 bits in floats only, as we have no loss of precision
+        elif np.issubdtype(decodedSignal.samples.dtype, np.integer):
+            floatSignals = decodedSignal.samples
+        
+        # If we have a pure string as raw signal, we will store it as a string
+        elif np.issubdtype(rawSignal.samples.dtype, np.string_) or np.issubdtype(rawSignal.samples.dtype, np.unicode_):
+            stringSignals = rawSignal.samples.view(np.chararray).decode('utf-8') 
 
-    
+        # For everything else use the previous approach but we will use decode with utf-8 to make sure we get the correct representation for text tables
+        # astype(string) was causing issues with special characters, and S32 would have truncated results.
+        else:
+            floatSignals = rawSignal.samples.astype(float)
+            stringSignals = decodedSignal.samples.view(np.chararray).decode('utf-8') 
+            
 
+    except Exception as e:
+        print(f"Exception for {decodedSignal.name}: {e}")        
+        print(traceback.print_exc())        
+        raise e
 
-    return floatSignals, integerSignals, uint64Signals, stringSignals
+    return floatSignals, stringSignals

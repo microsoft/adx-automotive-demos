@@ -11,6 +11,8 @@ def processFile(filename):
     ''' 
         Creates a sample MDF file that contains simulated values for Engine RPM, Vehicle Speed and Engine Power.
         The generated file will have 10,000 signals at about 100 miliseconds.
+
+        Some of the channels are based on the asammdf documentation
     '''
 
     # How many samples we will generate
@@ -57,6 +59,46 @@ def processFile(filename):
             gear[i] = 4
     signals.append(asammdf.Signal(name="Gear", samples=gear, timestamps=time, unit="-", source=source))
 
+    # Generate a random uint64 signal and add it to the mdf file
+    random_signal = np.random.randint(0, 2**64, size=numberOfValues, dtype=np.uint64)
+    signals.append(asammdf.Signal(name="Random", samples=random_signal, timestamps=time, unit="-", source=source))
+
+    # String channel
+    stringSignal = [
+        'String {}'.format(i).encode('utf-8')
+        for i in range(numberOfValues)
+    ]
+    signals.append(asammdf.Signal(name='Channel_string', samples=stringSignal, timestamps=time, unit="", source=source, encoding='utf-8'))
+
+
+
+    # value range to text    
+    vals = 20
+    conversion = {
+        'lower_{}'.format(i): i * 10
+        for i in range(vals)
+    }
+    conversion.update(
+        {
+            'upper_{}'.format(i): (i + 1) * 10
+            for i in range(vals)
+        }
+    )
+    conversion.update(
+        {
+            'text_{}'.format(i): 'Level {}'.format(i)
+            for i in range(vals)
+        }
+    )
+    conversion['default'] = b'Unknown level'
+    sig = asammdf.Signal(
+        6 * np.arange(numberOfValues, dtype=np.uint64) % 240,
+        name='Channel_value_range_to_text',
+        timestamps=time,
+        conversion=conversion,
+        comment='Value range to text channel',
+    )
+    signals.append(sig)
 
     mdf.append(signals, common_timebase=True)
 
@@ -70,4 +112,3 @@ if __name__ == "__main__":
 
     if(args.file):
         processFile(args.file)
-

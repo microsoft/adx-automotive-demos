@@ -89,7 +89,7 @@ def processFile(filename):
             print("Incorrect format selected, use argument --format with parquet or csv")     
 
         # Writes the calculated metadata
-        writeMetadata(metadata, filename, basename, args.target)           
+        writeMetadata(metadata, basename, file_uuid, args.target)           
 
     end_time = time.time() - start_time
     print (f"Processing {filename} took {end_time} and has {numberOfSignals} signals")

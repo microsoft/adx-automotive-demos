@@ -50,7 +50,7 @@ def processSignalAsParquet(counter, filename, signalMetadata, uuid, targetdir, b
         if (numberOfSamples == 0):              
             return (f"pid {os.getpid()}", True, counter, f"Processed signal {counter}: {decodedSignal.name} - no samples in file", numberOfSamples)
 
-        floatSignals, integerSignals, uint64Signals, stringSignals = extractSignalsByType(decodedSignal=decodedSignal, rawSignal=rawSignal)                       
+        floatSignals, stringSignals = extractSignalsByType(decodedSignal=decodedSignal, rawSignal=rawSignal)                       
 
         table = pa.table (
             {                   
@@ -58,13 +58,8 @@ def processSignalAsParquet(counter, filename, signalMetadata, uuid, targetdir, b
                 "group_index": np.full(numberOfSamples, group_index, dtype=np.int32),
                 "channel_index": np.full(numberOfSamples, channel_index, dtype=np.int32),
                 "name": np.full(numberOfSamples, decodedSignal.name, dtype=object),
-                "unit": np.full(numberOfSamples, decodedSignal.unit, dtype=object),
                 "timestamp": decodedSignal.timestamps,
-                "timestamp_diff": np.append(0, np.diff(decodedSignal.timestamps)),
                 "value": floatSignals,
-                "value_int": integerSignals,
-                "value_uint64": uint64Signals,
-                "value_string": stringSignals,
                 "valueRaw" : rawSignal.samples,
             }
         )             
@@ -82,10 +77,10 @@ def processSignalAsParquet(counter, filename, signalMetadata, uuid, targetdir, b
         
         end_signal_time = time.time() - start_signal_time        
 
-        return (f"pid {os.getpid()}", True, counter, f"Processed signal {counter}: {decodedSignal.name} with {len(decodedSignal.timestamps)} entries in {end_signal_time}", numberOfSamples)
+        return (f"pid {os.getpid()}", True, counter, f"Processed signal {counter}: {decodedSignal.name} with {len(decodedSignal.timestamps)} type {decodedSignal.samples.dtype} entries in {end_signal_time}", numberOfSamples)
     
     except Exception as e:
-        return (f"pid {os.getpid()}", False, counter, f"Signal {counter}: {decodedSignal.name} with {len(decodedSignal.timestamps)} failed: {str(e)}", 0)
+        return (f"pid {os.getpid()}", False, counter, f"Signal {counter}: {decodedSignal.name} with {len(decodedSignal.timestamps)} type {decodedSignal.samples.dtype} failed: {str(e)}", 0)
     
     finally:
         mdf.close()

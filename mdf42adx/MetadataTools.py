@@ -97,6 +97,8 @@ def writeMetadata(metadata, basename, uuid, target):
     '''
        Writes the metadata file to disk. 
     '''
+    print(f"Writing metadata file {basename}-{uuid} with {len(metadata['signals'])} signals")
+
     with open(os.path.join(target, f"{basename}-{uuid}.metadata.json"), 'w') as metadataFile:
         metadataFile.write(json.dumps(metadata))
         print(f"Finished writing metadata file {basename}-{uuid} with {len(metadata['signals'])} signals")

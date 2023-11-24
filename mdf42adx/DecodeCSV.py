@@ -37,7 +37,7 @@ def processSignalAsCsv(counter, filename, signalMetadata, uuid, targetdir, black
     # open the file in the write mode
     with gzip.open(targetfile, 'wt') as csvFile:
 
-        floatSignals, integerSignals, uint64Signals, stringSignals = extractSignalsByType(decodedSignal=decodedSignal, rawSignal=rawSignal)                       
+        floatSignals, stringSignals = extractSignalsByType(decodedSignal=decodedSignal, rawSignal=rawSignal)                       
 
         writer = csv.writer(csvFile)
         writer.writerow(["source_uuid", "group_index", "channel_index", "name", "unit", "timestamp", "value", "value_string", "value_raw"])                

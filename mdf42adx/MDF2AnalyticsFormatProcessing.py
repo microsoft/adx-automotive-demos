@@ -55,6 +55,7 @@ def processSignals(filename, basename, uuid, target, signalsMetadata, blackliste
                 callback=log_result,
                 error_callback=log_error
             )
+
             results.append(result)
 
         # All tasks have been submitted, no more tasks will be added to this pool.
@@ -63,9 +64,7 @@ def processSignals(filename, basename, uuid, target, signalsMetadata, blackliste
         vEntriesCount = 0 # Capture TOTAL( no. of entries per signal )
         # get the task result with a timeout defined as 3 minutes per signal.
         # This is a blocking call, so we will check the results in the order in which the tasks are submitted
-        for counter, result in enumerate(results):            
-
-
+        for counter, result in enumerate(results):
 
             try:
                 #print(f"Waiting for value for {counter} - {signalsMetadata[counter]['name']}")

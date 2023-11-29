@@ -39,7 +39,7 @@ def calculateMetadata(filename, basename, uuid):
     '''
 
     mdf = MDF(filename)
-    
+
     print(f"Generating metadata file {basename}-{uuid}")
 
     metadata = {
@@ -51,6 +51,7 @@ def calculateMetadata(filename, basename, uuid):
         "signals_decoding": [],
         "group_comment": [],
         "comments": mdf.header.comment,
+        "mdf_start_time": str(mdf.start_time),
     }
     
     for signal in mdf.iter_channels(raw=True):

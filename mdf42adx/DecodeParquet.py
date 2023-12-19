@@ -60,9 +60,10 @@ def processSignalAsParquet(counter, filename, signalMetadata, uuid, targetdir, b
                 "name": np.full(numberOfSamples, decodedSignal.name, dtype=object),
                 "timestamp": decodedSignal.timestamps,
                 "value": floatSignals,
+                "value_string": stringSignals,
                 "valueRaw" : rawSignal.samples,
             }
-        )             
+        )
 
         # Escape all characters from the decodedSignal.name and use only alphanumeric and underscore for the basename
         # This is to avoid issues with the basename_template and parquet

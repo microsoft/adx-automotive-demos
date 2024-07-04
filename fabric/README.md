@@ -1,43 +1,64 @@
-# ADX Automotive Demos
+# Using Fabric to analyze MDF files
 
-Welcome to Azure Data Explorer Automotive demos for Test & Validation Fleets. This project contains sample code for the [Data analytics for automotive test fleets](https://learn.microsoft.com/en-us/azure/architecture/industries/automotive/automotive-telemetry-analytics) architecture.
+This document will walk you through the necessary steps to analyze MDF files in Fabric. We will generate sample MDF files using the *asammdf* library, generate partitioned parquet files and load them in an Eventhouse for analytics with some sample queries. We will also display the resulting information in a Real Time Dashboard.
 
-Here you can find two sub-projects:
-- [geospatial](geospatial/README.md) is a Node.js project that provides geospatial visualization capabilities.
-- [mdf42adx](mdf42adx/README.md) is a python script that prepares ASAM MDF-4 files for import into ADX.
+## Step Overview
 
-## Using the projects
+- Get a free Fabric trial and create a workspace
+- Create the necessary resources
+  - Create an Environment that supports asammdf to generate MDF Files
+  - Create a Lakehouse to host the parquet files
+  - Create an Eventhouse to perform Real Time Analytics
+- Setup your Eventhouse using the Vehicle Data - Setup KQL Queryset
 
-A easy way to get started is to use Visual Studio Code and WSL.
+![Sample Fabric Configuration](sample-fabric-configuration.svg)
 
-- Install WSL2 in your Windows computer
-- Install Visual Studio Code
-- Check out the github repository
-- Open Visual Studio Code using the desired directory as argument, for example
+1. Generate synthetic MDF and metadata files.
+1. Decode the files into parquet.
+1. Map an external table to load the parquet files in Event House.
+1. Set up a pipeline to ingest the metadata files.
+1. Visualize the results.
 
-``` bash
-code geospatial
-code mdf42adx
-```
+## Initial Setup
 
-## Contributing
+- Get a [Microsoft Fabric trial capacity](https://learn.microsoft.com/fabric/get-started/fabric-trial) to get started with Fabric
+- [Create a workspace in Fabric](https://learn.microsoft.com/fabric/get-started/create-workspaces) and use a suitable name, for example *Automotive Engineering Data*
 
-This project welcomes contributions and suggestions.  Most contributions require you to agree to a
-Contributor License Agreement (CLA) declaring that you have the right to, and actually do, grant us
-the rights to use your contribution. For details, visit https://cla.opensource.microsoft.com.
+## Create the necessary resources
 
-When you submit a pull request, a CLA bot will automatically determine whether you need to provide
-a CLA and decorate the PR appropriately (e.g., status check, comment). Simply follow the instructions
-provided by the bot. You will only need to do this once across all repos using our CLA.
+We will create a spark environment that has the necessary automotive libraries, a lakehouse to store raw MDF recordings and a eventhouse to store metadata and signal data.
 
-This project has adopted the [Microsoft Open Source Code of Conduct](https://opensource.microsoft.com/codeofconduct/).
-For more information see the [Code of Conduct FAQ](https://opensource.microsoft.com/codeofconduct/faq/) or
-contact [opencode@microsoft.com](mailto:opencode@microsoft.com) with any additional questions or comments.
+- Create a new environment item called *AutomotiveEnvironment* and add the *asammdf* library from PyPI
+  - In the environment, go to the entry "Public Libraries" and press "+ Add from PyPI" on the top bar.
+  - Type asammdf and select the library
+  - Select the "publish" option
+  - Wait until the publication process is complete.
+- [Create a Lakehouse](https://learn.microsoft.com/fabric/data-engineering/create-lakehouse) and call it *VehicleData*. The Lakehouse will store the MDF and the parquet files.
+- [Create a new Eventhouse](https://learn.microsoft.com/fabric/real-time-intelligence/create-eventhouse) item and call it *VehicleData*. The Eventhouse will have a KQL Database to store the metadata and the signal information.
 
-## Trademarks
+## Generate sample MDF files and process them
 
-This project may contain trademarks or logos for projects, products, or services. Authorized use of Microsoft 
-trademarks or logos is subject to and must follow 
-[Microsoft's Trademark & Brand Guidelines](https://www.microsoft.com/en-us/legal/intellectualproperty/trademarks/usage/general).
-Use of Microsoft trademarks or logos in modified versions of this project must not cause confusion or imply Microsoft sponsorship.
-Any use of third-party trademarks or logos are subject to those third-party's policies.
+- Import the [Vehicle Data - File Creation](Vehicle%20Data%20-%20File%20Creation.ipynb) notebook to the workspace
+  - Select the previously created *AutomotiveEnvironment* as the execution environment from the toolbar
+  - Execute the cell *Create a Sample MDF File* to create a sample MDF file. This file will be stored in the Lakehouse
+  - Execute the cell *Create metadata file*. This will create the associated metadata file to the recording.
+  - Execute the cell *Decode the MDF file to parquet*. This will transform MDF files into a format suitable for analytics (parquet).
+
+## Setup your eventhouse
+
+- Create a KQL Query Set item with the name "Vehicle Data - Setup" and add the code from the [KQL Setup file](Vehicle%20Data%20-%20Setup.kql)
+  - Execute the code to create the *raw* external table.
+- Create a pipeline *load-metadata* to automatically import the metadata files into the metadata table
+
+## Execute some sample queries
+
+- Create a KQL Query set item with the name *Vehicle Data - Sample Queries and add the code from [Vehicle Data - Sample Queries](Vehicle%20Data%20-%20Sample%20Queries.kql)
+  - Read the description and execute teh queries
+
+## Visualize the data a Real Time DAshboard
+
+- Import the [Real Time Dashboard](dashboard-Automotive%20Engineering%20Data.json)
+
+## Clean up
+
+- Delete the workspace from Microsoft Fabric to clear all resources.

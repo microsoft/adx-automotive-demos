@@ -1,0 +1,22 @@
+// --------------------------------------------------------
+// Basic Queries
+// --------------------------------------------------------
+
+// Show the files that we imported
+metadata
+
+// show the amount of signals for an imported file
+let source_uuids = (metadata
+    | take 1
+    | project source_uuid);
+external_table('raw')
+| where source_uuid in (source_uuids)
+| summarize count() by name
+
+let source_uuids = (metadata
+    | take 1
+    | project source_uuid);
+external_table('raw')
+| where source_uuid in (source_uuids)
+| make-series value=avg(value) on timestamp step 0.25 by source_uuid, name
+| render linechart with (xcolumn=timestamp, series=name, ycolumns=value, ysplit=panels)

@@ -1,0 +1,14 @@
+//-------------------------------
+// Setting up the database
+//-------------------------------
+
+// This maps the parquet files to an external table in Eventhouse, taking into consideration the path format
+// Copy the Files location from your instance
+.create-or-alter external table raw (group_index:int,channel_index:int,timestamp:real,value:real,value_string:string,valueRaw:real)
+kind=storage
+partition by (source_uuid:string, name:string)
+pathformat=("source_uuid=" source_uuid "/name=" name)
+dataformat=parquet
+(
+    h@"https://msit-onelake.dfs.fabric.microsoft.com/xxx/xxx/Files/raw;impersonate"
+)

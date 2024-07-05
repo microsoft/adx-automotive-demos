@@ -1,9 +1,9 @@
 {
     "$schema": "https://msitpbiadx.powerbi.com/static/d/schema/52/dashboard.json",
-    "id": "d1087f97-33a7-405d-97da-316b58d0af1c",
-    "eTag": "\"61449c7c9ea24ad1aa21215192db1577\"",
+    "id": "b8c1459f-17c3-4f89-99a6-270cf291abe9",
+    "eTag": "\"808C6CE6C3C149CF82B7FF076AE32F18\"",
     "schema_version": "52",
-    "title": "Automotive Engineering Data",
+    "title": "EngineeringVisualization",
     "tiles": [
         {
             "id": "19d10249-1ab1-4981-93e6-61527b7d4072",
@@ -117,6 +117,15 @@
         }
     ],
     "dataSources": [
+        {
+            "kind": "kusto-trident",
+            "scopeId": "kusto-trident",
+            "database": "EvH_VehicleData",
+            "clusterUri": "https://xxxxx.kusto.fabric.microsoft.com",
+            "name": "EvH_VehicleData",
+            "id": "c30fd6c8-b54a-4550-8ba2-d49713a2c21b",
+            "workspace": "xxx-xxx-xxx-xxx-xxxx"
+        }
     ],
     "pages": [
         {
@@ -128,7 +137,7 @@
         {
             "dataSource": {
                 "kind": "inline",
-                "dataSourceId": "d54565bd-36c5-4726-916c-aa704068008e"
+                "dataSourceId": "c30fd6c8-b54a-4550-8ba2-d49713a2c21b"
             },
             "text": "external_table('raw')\n| where source_uuid == _source_uuid\n| make-series value=avg(value) on timestamp step 0.25 by source_uuid, name",
             "id": "420c2ddb-b4cd-43d8-bbb9-33b6ac326901",
@@ -139,16 +148,16 @@
         {
             "dataSource": {
                 "kind": "inline",
-                "dataSourceId": "d54565bd-36c5-4726-916c-aa704068008e"
+                "dataSourceId": "c30fd6c8-b54a-4550-8ba2-d49713a2c21b"
             },
-            "text": "// Please enter your KQL query (Example):\nmetadata\n| project source_uuid, name",
+            "text": "metadata\n| distinct source_uuid, name\n| project source_uuid, name",
             "id": "4c11cdb6-3696-446c-a611-ac78e1d2dba0",
             "usedVariables": []
         },
         {
             "dataSource": {
                 "kind": "inline",
-                "dataSourceId": "d54565bd-36c5-4726-916c-aa704068008e"
+                "dataSourceId": "c30fd6c8-b54a-4550-8ba2-d49713a2c21b"
             },
             "text": "metadata\n| distinct source_uuid, name",
             "id": "968e5a94-9329-4507-983c-ba02bc01ff15",

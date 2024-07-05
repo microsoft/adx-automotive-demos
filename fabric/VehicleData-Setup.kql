@@ -12,3 +12,6 @@ dataformat=parquet
 (
     h@"https://msit-onelake.dfs.fabric.microsoft.com/xxx/xxx/Files/raw;impersonate"
 )
+
+// Create the table for the  signal metadata
+.create table metadata  (name:string, source_uuid:guid, preparation_startDate:datetime, signals:dynamic, signals_comment:dynamic, signals_decoding:dynamic, ['group_comment']:dynamic, ['comments']:string)
